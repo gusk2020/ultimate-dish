@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+/* A handful of shared component classes; everything else is inline Tailwind. */
+@layer components {
+  .card {
+    @apply rounded-2xl bg-white p-3 shadow-sm;
+  }
+  .section-title {
+    @apply mb-2 text-base font-bold;
+  }
+  .btn-primary {
+    @apply min-h-11 rounded-xl bg-amber-600 px-4 py-2.5 font-semibold text-white active:bg-amber-700 disabled:bg-stone-300 disabled:text-stone-500;
+  }
+  .btn-secondary {
+    @apply min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2.5 font-semibold text-stone-800 active:bg-stone-100;
+  }
+  .chip {
+    @apply flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl border border-stone-200 bg-white px-1.5 py-1.5 active:bg-stone-100 disabled:opacity-50;
+  }
+  .chip-on {
+    @apply border-amber-500 bg-amber-100;
+  }
+  .icon-btn {
+    @apply h-9 w-9 rounded-lg bg-white text-stone-600 active:bg-stone-200 disabled:opacity-30;
+  }
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  margin: 0;
+  background: #e9e3d6;
+  color: #292524;
+  font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  overflow-x: hidden;
+}

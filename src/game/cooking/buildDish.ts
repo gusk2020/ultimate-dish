@@ -1,0 +1,38 @@
+import type { Dish, Recipe } from "../../types";
+import { evaluateDish, rankOf, totalScore } from "../evaluation/absolute";
+import { cookProfile, resolveIngredients } from "./cook";
+import { canonicalRecipe, seedFromKey, toGenerationKey } from "./generationKey";
+import { generateDishName } from "./naming";
+
+/** Everything about a dish except what the (future AI) services add. */
+export type DishCore = Omit<Dish, "description" | "image">;
+
+let counter = 0;
+function newId(): string {
+  counter += 1;
+  return `dish-${Date.now().toString(36)}-${counter.toString(36)}`;
+}
+
+/** Recipe → dish data. Deterministic except for id / createdAt. */
+export function buildDish(recipe: Recipe, parentDishId: string | null = null): DishCore {
+  const canonical = canonicalRecipe(recipe);
+  const generationKey = toGenerationKey(canonical);
+  const ings = resolveIngredients(canonical);
+  const profile = cookProfile(canonical);
+  const scores = evaluateDish(profile, ings);
+  const total = totalScore(scores);
+  return {
+    id: newId(),
+    name: generateDishName(ings, profile, seedFromKey(generationKey)),
+    generationKey,
+    parentDishId,
+    isPublic: false,
+    recipe: canonical,
+    profile,
+    scores,
+    total,
+    rank: rankOf(total),
+    createdAt: Date.now(),
+    guild: { favorites: 0, reproductions: 0 },
+  };
+}
