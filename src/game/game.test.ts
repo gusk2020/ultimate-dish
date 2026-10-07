@@ -7,7 +7,7 @@ import { QUESTS } from "../data/quests";
 import { EATER_MAP, EATERS } from "../data/eaters";
 import { buildDish } from "./cooking/buildDish";
 import { parseGenerationKey, toGenerationKey } from "./cooking/generationKey";
-import { rankOf } from "./evaluation/absolute";
+import { RANK_THRESHOLDS, rankOf, rateDish, STANDOUT_SCORE } from "./evaluation/rating";
 import { experienceOf } from "./evaluation/experience";
 import { judgeQuest } from "./quest/judge";
 
@@ -45,7 +45,7 @@ describe("dish generation", () => {
   });
 
   it("same generation key reproduces the same dish", () => {
-    const recipe: Recipe = { ingredientIds: ["onion", "boar"], steps: [s("kirijio"), t("stone"), m("grill"), m("boil")] };
+    const recipe: Recipe = { ingredientIds: ["onion", "boar"], steps: [s("homura"), t("stone"), m("grill"), m("boil")] };
     const key = toGenerationKey(recipe);
     const parsed = parseGenerationKey(key)!;
     expect(parsed).not.toBeNull();
@@ -94,13 +94,14 @@ describe("evaluation", () => {
   });
 
   it("ranks follow fixed thresholds", () => {
+    expect(RANK_THRESHOLDS.Legendary).toBe(85);
     expect(rankOf(10)).toBe("D");
     expect(rankOf(50)).toBe("C");
     expect(rankOf(90)).toBe("Legendary");
   });
 
   it("eaters rate the same dish differently without changing its absolute score", () => {
-    const dish = asDish({ ingredientIds: ["boar", "garlic", "onion"], steps: [s("kirijio"), m("smoke")] });
+    const dish = asDish({ ingredientIds: ["boar", "garlic", "onion"], steps: [s("homura"), m("smoke")] });
     const before = { ...dish.scores };
     const scores = EATERS.map((e) => experienceOf(dish, e).score);
     expect(new Set(scores).size).toBeGreaterThan(1);
@@ -110,11 +111,11 @@ describe("evaluation", () => {
 
 describe("quests", () => {
   const good: Record<string, Recipe> = {
-    q1: { ingredientIds: ["boar", "onion", "garlic"], steps: [s("kirijio"), m("pressure")] },
+    q1: { ingredientIds: ["boar", "onion", "garlic"], steps: [s("homura"), m("pressure")] },
     q2: { ingredientIds: ["chicken", "beans", "cabbage", "wheat", "onion"], steps: [m("boil")] },
     q3: {
       ingredientIds: ["rabbit", "mushroom", "apple", "herb"],
-      steps: [s("kirijio"), t("stone"), m("grill"), s("homura")],
+      steps: [s("homura"), t("stone"), m("grill"), s("homura")],
     },
   };
 
@@ -129,8 +130,65 @@ describe("quests", () => {
 
   it("quest 1 requires a pest animal", () => {
     const q1 = QUESTS[0];
-    const r = judgeQuest(q1, asDish({ ingredientIds: ["chicken", "onion", "garlic"], steps: [s("kirijio"), m("grill")] }), EATER_MAP[q1.eaterId]);
+    const r = judgeQuest(q1, asDish({ ingredientIds: ["chicken", "onion", "garlic"], steps: [s("homura"), m("grill")] }), EATER_MAP[q1.eaterId]);
     expect(r.requirementMet).toBe(false);
     expect(r.success).toBe(false);
+  });
+});
+
+describe("rating: 最低条件 and 突出ボーナス", () => {
+  const flat = (v: number) => Object.fromEntries(AXES.map((a) => [a, v])) as Record<(typeof AXES)[number], number>;
+
+  it("a balanced dish gets the rank its total earns", () => {
+    const r = rateDish(flat(80));
+    expect(r.rank).toBe("S");
+    expect(r.rankCap).toBeNull();
+    expect(r.bonus).toBe(0);
+  });
+
+  it("最低条件: one very low axis keeps a high total out of the top ranks", () => {
+    const s = { ...flat(95), rarity: 10 };
+    const r = rateDish(s);
+    expect(rankOf(r.total)).toBe("Legendary");
+    expect(r.rank).toBe("A");
+    expect(r.rankCap?.from).toBe("Legendary");
+  });
+
+  it("最低条件: weak deliciousness caps the rank", () => {
+    const r = rateDish({ ...flat(90), deliciousness: 60 });
+    expect(r.rank).toBe("A");
+    expect(r.rankCap?.reason).toContain("美味しさ");
+  });
+
+  it("最低条件: an undercooked dish cannot rise above C", () => {
+    expect(rateDish(flat(80), true).rank).toBe("C");
+  });
+
+  it("突出ボーナス: axes at 90+ earn titles and a capped bonus", () => {
+    const one = rateDish({ ...flat(60), craveability: STANDOUT_SCORE });
+    expect(one.titles).toEqual(["魔性の味"]);
+    expect(one.total).toBe(one.baseTotal + 2);
+    const many = rateDish({ ...flat(60), craveability: 95, nutrition: 92, culture: 90 });
+    expect(many.titles).toHaveLength(3);
+    expect(many.bonus).toBe(4);
+    expect(rateDish(flat(89)).titles).toEqual([]);
+  });
+
+  it("real dishes carry titles and caps consistently", () => {
+    const fried = buildDish({
+      ingredientIds: ["chicken", "wheat", "garlic", "cheese"],
+      steps: [t("stone"), m("fry"), s("homura")],
+    });
+    expect(fried.scores.craveability).toBeGreaterThanOrEqual(STANDOUT_SCORE);
+    expect(fried.titles).toContain("魔性の味");
+    expect(fried.total).toBeGreaterThan(0);
+  });
+});
+
+describe("data", () => {
+  it("has exactly one quality spice and one body spice", () => {
+    expect(SPICES).toHaveLength(2);
+    expect(SPICES.filter((x) => x.kind === "quality")).toHaveLength(1);
+    expect(SPICES.filter((x) => x.kind === "body")).toHaveLength(1);
   });
 });

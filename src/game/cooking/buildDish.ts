@@ -1,5 +1,6 @@
 import type { Dish, Recipe } from "../../types";
-import { evaluateDish, rankOf, totalScore } from "../evaluation/absolute";
+import { evaluateDish } from "../evaluation/absolute";
+import { rateDish } from "../evaluation/rating";
 import { cookProfile, resolveIngredients } from "./cook";
 import { canonicalRecipe, seedFromKey, toGenerationKey } from "./generationKey";
 import { generateDishName } from "./naming";
@@ -20,7 +21,7 @@ export function buildDish(recipe: Recipe, parentDishId: string | null = null): D
   const ings = resolveIngredients(canonical);
   const profile = cookProfile(canonical);
   const scores = evaluateDish(profile, ings);
-  const total = totalScore(scores);
+  const rating = rateDish(scores, profile.undercooked);
   return {
     id: newId(),
     name: generateDishName(ings, profile, seedFromKey(generationKey)),
@@ -30,8 +31,10 @@ export function buildDish(recipe: Recipe, parentDishId: string | null = null): D
     recipe: canonical,
     profile,
     scores,
-    total,
-    rank: rankOf(total),
+    total: rating.total,
+    rank: rating.rank,
+    titles: rating.titles,
+    rankCap: rating.rankCap,
     createdAt: Date.now(),
     guild: { favorites: 0, reproductions: 0 },
   };

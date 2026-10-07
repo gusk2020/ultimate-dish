@@ -1,6 +1,6 @@
 import { METHOD_MAP } from "../../data/methods";
 import { SPICE_MAP } from "../../data/magic";
-import type { AxisScores, DishProfile, Ingredient, Rank } from "../../types";
+import type { AxisScores, DishProfile, Ingredient } from "../../types";
 import { AXES } from "../../types";
 import { clamp } from "../util";
 import { deliciousness } from "./deliciousness";
@@ -95,23 +95,4 @@ export function evaluateDish(p: DishProfile, ings: Ingredient[]): AxisScores {
   };
   for (const a of AXES) scores[a] = Math.round(scores[a]);
   return scores;
-}
-
-/** 総合点: deliciousness counts double — it is a cooking game first. */
-export function totalScore(s: AxisScores): number {
-  const sum = AXES.reduce((acc, a) => acc + s[a] * (a === "deliciousness" ? 2 : 1), 0);
-  return Math.round(sum / (AXES.length + 1));
-}
-
-export const RANK_THRESHOLDS: [Rank, number][] = [
-  ["Legendary", 85],
-  ["S", 75],
-  ["A", 65],
-  ["B", 55],
-  ["C", 42],
-  ["D", 0],
-];
-
-export function rankOf(total: number): Rank {
-  return RANK_THRESHOLDS.find(([, min]) => total >= min)![0];
 }

@@ -2,7 +2,7 @@ import type { Recipe, Step } from "../../types";
 import { fnv1a } from "../util";
 
 // Generation key = a canonical, human-readable encoding of the recipe plus a checksum.
-//   UD1|boar.onion|m:grill,t:stone,m:boil,s:kirijio|1x9k2a
+//   UD1|boar.onion|m:grill,t:stone,m:boil,s:homura|1x9k2a
 // The same key always rebuilds the same recipe, and the dish logic is deterministic,
 // so the key is a reproduction seed. The checksum doubles as the numeric seed used
 // for cosmetic choices (name wording, placeholder colours, future AI image seed).

@@ -1,47 +1,19 @@
 import type { MagicTool, Spice } from "../types";
 
-// 異世界スパイス: quality (料理品質向上系) and body (身体効果系).
-// unlockAfterQuest gates them behind quest progress so the toolbox grows.
+// 異世界スパイス: one quality (料理品質向上系) and one body (身体効果系) spice.
+// unlockAfterQuest gates items behind quest progress (used by the tools below).
 export const SPICES: Spice[] = [
   {
-    id: "kirijio", name: "霧塩", emoji: "🧂", kind: "quality",
-    tasteDelta: { salty: 3, umami: 1.5 }, body: {}, crave: 4, preserves: true,
-    rarity: 3, price: 2,
-    description: "霧の谷で採れる塩。塩味とうま味、保存性を与える",
+    id: "homura", name: "焔胡椒", emoji: "🌶️", kind: "quality",
+    tasteDelta: { aroma: 2.5, umami: 1.5, salty: 1 }, body: {}, crave: 8,
+    rarity: 6, price: 4,
+    description: "火山地帯の胡椒。香りとうま味を強め、やみつきの刺激を与える",
   },
   {
     id: "iyashi", name: "癒樹の根", emoji: "🪵", kind: "body",
-    tasteDelta: { bitter: 1, aroma: 0.5 }, body: { fatigue: 6 }, crave: 0,
+    tasteDelta: { bitter: 1, aroma: 0.5 }, body: { fatigue: 6, condition: 2 }, crave: 0,
     rarity: 4, price: 3,
-    description: "煎じると疲労回復。少し苦い",
-  },
-  {
-    id: "homura", name: "焔胡椒", emoji: "🌶️", kind: "quality",
-    tasteDelta: { aroma: 2.5, umami: 1, bitter: 0.3 }, body: {}, crave: 8,
-    rarity: 6, price: 5,
-    description: "火山地帯の胡椒。強い香りとやみつきの刺激",
-    unlockAfterQuest: "q1",
-  },
-  {
-    id: "seirei", name: "清霊ミント", emoji: "🍃", kind: "body",
-    tasteDelta: { aroma: 1.5, bitter: 0.5 }, body: { condition: 6 }, crave: 1,
-    rarity: 4, price: 3,
-    description: "消化を助け、体調を整える清涼なミント",
-    unlockAfterQuest: "q1",
-  },
-  {
-    id: "suzune", name: "鈴音草の実", emoji: "🔔", kind: "quality",
-    tasteDelta: { sweet: 1, aroma: 1.5 }, body: {}, crave: 10,
-    rarity: 7, price: 6,
-    description: "噛むと鈴の音がする実。甘い香りと楽しい食感",
-    unlockAfterQuest: "q2",
-  },
-  {
-    id: "soushou", name: "蒼晶花", emoji: "💠", kind: "body",
-    tasteDelta: { aroma: 1, sweet: 0.5 }, body: { mana: 7, fatigue: 2 }, crave: 2,
-    rarity: 8, price: 8,
-    description: "魔力を回復する希少な花弁",
-    unlockAfterQuest: "q2",
+    description: "煎じると疲労回復、体調も少し整う。やや苦い",
   },
 ];
 

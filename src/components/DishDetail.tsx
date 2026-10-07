@@ -59,6 +59,21 @@ export function DishDetail({ dish, onRename, onTogglePublic, onDerive, showMeta 
         </div>
       </div>
 
+      {(dish.titles.length > 0 || dish.rankCap) && (
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          {dish.titles.map((t) => (
+            <span key={t} className="rounded-full bg-violet-100 px-2 py-1 font-semibold text-violet-800">
+              🏅 {t}
+            </span>
+          ))}
+          {dish.rankCap && (
+            <span className="text-stone-600">
+              ※ 総合点は{dish.rankCap.from}相当ですが、{dish.rankCap.reason}のため{dish.rank}止まり
+            </span>
+          )}
+        </div>
+      )}
+
       {dish.profile.undercooked && (
         <p className="rounded-lg bg-red-100 px-3 py-2 text-sm text-red-800">
           ⚠ 生のままでは危ない素材があります。加熱工程を入れましょう。

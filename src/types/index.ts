@@ -172,6 +172,10 @@ export interface Dish {
   scores: AxisScores;
   total: number;
   rank: Rank;
+  /** 突出ボーナス titles (an axis at 90+). */
+  titles: string[];
+  /** 最低条件: set when a weak axis held the rank below what the total earned. */
+  rankCap: { from: Rank; reason: string } | null;
   description: string;
   image: DishImage;
   createdAt: number;
