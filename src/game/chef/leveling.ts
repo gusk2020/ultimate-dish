@@ -40,6 +40,7 @@ export function gainXp(chef: Chef, amount: number, seed: number): { chef: Chef; 
     if (lucky) add(STAT_KEYS[Math.floor(rng() * STAT_KEYS.length)], 1);
     levelUps.push({ level: c.level, gains, luckyBonus: lucky });
   }
-  if (levelUps.length) c = { ...c, mp: maxMP(c) };
+  // No full refill on level-up (it hid MP spending); MP just stays within the new maximum.
+  if (levelUps.length) c = { ...c, mp: Math.min(c.mp, maxMP(c)) };
   return { chef: c, levelUps };
 }

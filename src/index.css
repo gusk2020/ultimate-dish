@@ -12,7 +12,7 @@
     @apply min-h-11 rounded-xl bg-amber-600 px-4 py-2.5 font-semibold text-white active:bg-amber-700 disabled:bg-stone-300 disabled:text-stone-500;
   }
   .btn-secondary {
-    @apply min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2.5 font-semibold text-stone-800 active:bg-stone-100;
+    @apply min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2.5 font-semibold text-stone-800 active:bg-stone-100 disabled:opacity-50;
   }
   .chip {
     @apply flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl border border-stone-200 bg-white px-1.5 py-1.5 active:bg-stone-100 disabled:opacity-50;

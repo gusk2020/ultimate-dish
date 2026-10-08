@@ -28,6 +28,8 @@ export interface Chef {
   /** Allocation is editable until confirmed (re-allocation later is a future, costlier feature). */
   allocationLocked: boolean;
   mp: number;
+  /** 体力. Max comes from strength + level (maxStamina); temporary modifiers can join later. */
+  stamina: number;
   money: number;
   activeSchoolId: string;
   learnedSchoolIds: string[];
@@ -187,4 +189,37 @@ export interface DishProcessInfo {
   chefLevel: number;
   finish: FinishInput;
   finishReview: FinishReview;
+}
+
+// ---------- Phase 3: commerce ----------
+
+/** Portions of a finished dish waiting to be eaten or sold. */
+export interface DishStock {
+  id: string;
+  dishId: string;
+  recipeId: string | null;
+  name: string;
+  tags: string[]; // SalesTag
+  portions: number;
+  total: number; // dish 総合点 at making time
+  nutrition: number;
+  unitCost: number; // material cost per portion
+  madeDay: number;
+  freshness: number; // 1 → 0, drops each night
+  price: number; // set by the player; 0 = use recommended
+  listed: boolean; // put out for 総菜販売 today
+  discounted: boolean;
+}
+
+export interface Contract {
+  id: string;
+  shopId: string;
+  dishId: string;
+  dishName: string;
+  total: number;
+  tags: string[];
+  price: number; // shop's selling price
+  rate: number; // player's share of the shop's sales
+  daysLeft: number;
+  earned: number;
 }

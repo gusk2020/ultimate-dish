@@ -1,10 +1,7 @@
 import { createContext, useContext, useReducer, type ReactNode } from "react";
 import type { Dish, QuestResult, Recipe, ScreenId, WorldClock } from "../types";
-import type { World } from "../game/world";
+import { createWorld, type World } from "../game/world";
 import type { ProcessStep } from "../types/world";
-import { createDefaultChef } from "../game/chef/stats";
-import { initialInventory } from "../data/items";
-import { initialTools } from "../data/phase2";
 
 // One reducer for the whole prototype. In-memory only (reload clears it);
 // persistence / online sync will hook in here later.
@@ -45,14 +42,7 @@ const initialState: GameState = {
   questResults: {},
   clock: { day: 1, season: "spring", weather: "sunny" },
   kitchenSeed: null,
-  world: {
-    day: 0.25, // morning of day 1
-    chef: createDefaultChef(),
-    inventory: initialInventory(0),
-    tools: initialTools(),
-    customSchools: [],
-    stackCounter: 0,
-  },
+  world: createWorld(),
 };
 
 function reducer(state: GameState, a: Action): GameState {

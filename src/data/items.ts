@@ -46,9 +46,9 @@ export function itemInfo(id: string): ItemInfo | null {
 }
 
 export const STORAGES: Storage[] = [
-  { id: "shelf", name: "常温棚", capacity: 40, decayRate: 1, upkeepPerDay: 0, affinity: ["plant", "seasoning", "spice"], agesTags: [] },
-  { id: "cellar", name: "地下貯蔵庫", capacity: 25, decayRate: 0.5, upkeepPerDay: 1, affinity: ["plant", "dairy"], agesTags: ["meat"] },
-  { id: "icehouse", name: "氷室", capacity: 12, decayRate: 0.15, upkeepPerDay: 3, affinity: ["animal", "dairy"], agesTags: [] },
+  { id: "shelf", name: "常温棚", capacity: 60, decayRate: 1, upkeepPerDay: 0, affinity: ["plant", "seasoning", "spice"], agesTags: [] },
+  { id: "cellar", name: "地下貯蔵庫", capacity: 30, decayRate: 0.5, upkeepPerDay: 1, affinity: ["plant", "dairy"], agesTags: ["meat"] },
+  { id: "icehouse", name: "氷室", capacity: 20, decayRate: 0.15, upkeepPerDay: 3, affinity: ["animal", "dairy"], agesTags: [] },
 ];
 export const STORAGE_MAP: Record<string, Storage> = Object.fromEntries(STORAGES.map((s) => [s.id, s]));
 

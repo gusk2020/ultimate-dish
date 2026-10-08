@@ -9,6 +9,7 @@ import { completeDish } from "../state/completeDish";
 import { DishDetail } from "../components/DishDetail";
 import { stepLabel } from "../components/stepLabel";
 import { LineKitchen } from "./LineKitchen";
+import { RecipeKitchen } from "./RecipeKitchen";
 
 const MAX_STEPS = 8;
 const TASTE_SHORT: Record<TasteKey, string> = {
@@ -225,10 +226,13 @@ function SimpleKitchen() {
   );
 }
 
-/** 厨房: the Phase 2 line kitchen by default; the Phase 1 quick kitchen is kept as かんたん調理. */
+/**
+ * 厨房: everyday play is レシピ調理 (recipe + portions). The Phase 1 free kitchen and the
+ * Phase 2 line kitchen stay available as 自由調理 / 上級調理.
+ */
 export function Kitchen() {
   const { state, dispatch } = useGame();
-  const [mode, setMode] = useState<"line" | "simple">("line");
+  const [mode, setMode] = useState<"recipe" | "simple" | "line">("recipe");
   const seed = state.kitchenSeed;
   useEffect(() => {
     if (seed) setMode(seed.steps ? "line" : "simple");
@@ -237,20 +241,24 @@ export function Kitchen() {
 
   return (
     <div>
-      <div className="mx-4 mt-4 grid grid-cols-2 gap-1 rounded-xl bg-stone-200 p-1">
-        {([["line", "工程調理"], ["simple", "かんたん調理（旧）"]] as const).map(([m, l]) => (
-          <button key={m} className={`min-h-10 rounded-lg text-sm ${mode === m ? "bg-white font-bold shadow" : "text-stone-600"}`} onClick={() => setMode(m)}>
+      <div className="mx-4 mt-4 grid grid-cols-[2fr_1fr_1fr] gap-1 rounded-xl bg-stone-200 p-1">
+        {([["recipe", "🍲 レシピ調理"], ["simple", "自由調理"], ["line", "上級調理"]] as const).map(([m, l]) => (
+          <button key={m} className={`min-h-10 rounded-lg text-sm ${mode === m ? "bg-white font-bold shadow" : "text-xs text-stone-500"}`} onClick={() => setMode(m)}>
             {l}
           </button>
         ))}
       </div>
-      {mode === "line" ? (
+      {mode === "recipe" && (
+        <div className="p-4">
+          <RecipeKitchen />
+        </div>
+      )}
+      {mode === "line" && (
         <div className="p-4">
           <LineKitchen seedSteps={seed?.steps} parentDishId={seed?.parentDishId ?? null} onSeedUsed={consume} />
         </div>
-      ) : (
-        <SimpleKitchen />
       )}
+      {mode === "simple" && <SimpleKitchen />}
     </div>
   );
 }

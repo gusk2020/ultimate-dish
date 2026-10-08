@@ -9,7 +9,7 @@ import { rollGrade, simulateProcess, type ProcessContext } from "./process/simul
 import { buildProcessDish, parseProcessKey, toProcessKey } from "./process/buildProcessDish";
 import { reviewFinish, EMPTY_FINISH } from "./finish/finish";
 import { canFuse, findSchool, fuseSchools, switchSchool } from "./school/school";
-import { completeCooking, type World } from "./world";
+import { completeCooking, createWorld, type World } from "./world";
 
 const add = (line: number, itemId: string, amount = 1): ProcessStep => ({ kind: "add", line, itemId, amount });
 const method = (line: number, methodId: string): ProcessStep => ({ kind: "method", line, methodId });
@@ -243,7 +243,7 @@ describe("dish building and completion", () => {
     const review = reviewFinish(EMPTY_FINISH);
     const core = buildProcessDish({ steps, result, school: c.school, finish: EMPTY_FINISH, review, cookingSeed: c.seed, chefLevel: 1, parentDishId: null });
     const dish = { ...core, description: "", image: { kind: "placeholder" as const, emoji: "", colors: ["", ""] as [string, string] } };
-    const w: World = { day: 0, chef: c.chef, inventory: c.inventory, tools: c.tools, customSchools: [], stackCounter: 0 };
+    const w: World = { ...createWorld(), day: 0, chef: c.chef, inventory: c.inventory, tools: c.tools };
     const out = completeCooking(w, steps, result, dish);
     if (typeof out === "string") throw new Error(out);
     const rabbitBefore = w.inventory.find((s) => s.itemId === "rabbit")!.quantity;

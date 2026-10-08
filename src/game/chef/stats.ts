@@ -77,6 +77,21 @@ export function toolSlots(chef: Chef): number {
   return 1 + Math.floor(3 * eff(chef.stats.magic)) + (skillLevel(chef, "multiTool") >= 1 ? 1 : 0);
 }
 
+/** 最大体力: strength + level, saturating. 12 → ~59 at Lv1. */
+export function maxStamina(chef: Chef): number {
+  return 40 + Math.floor(60 * eff(chef.stats.strength)) + Math.floor(160 * eff(chef.level, 300));
+}
+
+/**
+ * 低体力ペナルティ: below 30% of max, success drops, time grows and critical failures get likelier.
+ * Never blocks cooking — pushing on while tired is a choice.
+ */
+export function staminaPenalty(chef: Chef): { chance: number; timeMult: number; tired: boolean } {
+  const ratio = Math.max(0, chef.stamina) / maxStamina(chef);
+  const lack = Math.max(0, 0.3 - ratio) / 0.3; // 0 (fine) .. 1 (empty)
+  return { chance: -0.18 * lack, timeMult: 1 + 0.6 * lack, tired: lack > 0 };
+}
+
 export function createDefaultChef(): Chef {
   const chef: Chef = {
     name: "見習い料理人",
@@ -85,6 +100,7 @@ export function createDefaultChef(): Chef {
     stats: { tech: 12, knowledge: 11, luck: 5, magic: 10, strength: 12 },
     allocationLocked: false,
     mp: 0,
+    stamina: 0,
     money: 120,
     activeSchoolId: "village",
     learnedSchoolIds: ["village", "north", "court"],
@@ -98,5 +114,6 @@ export function createDefaultChef(): Chef {
     },
   };
   chef.mp = maxMP(chef);
+  chef.stamina = maxStamina(chef);
   return chef;
 }
