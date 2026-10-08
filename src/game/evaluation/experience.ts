@@ -1,4 +1,5 @@
 import type { Dish, Eater, TasteKey } from "../../types";
+import { finishExperienceBonus } from "../finish/finish";
 import { clamp } from "../util";
 
 // 食べ手の体験評価. Reads the dish's absolute scores and profile; never changes them.
@@ -12,7 +13,7 @@ const TASTE_LABEL: Record<TasteKey, string> = {
   sweet: "甘さ", salty: "塩気", sour: "酸味", bitter: "苦味", umami: "うま味", aroma: "香り",
 };
 
-export function experienceOf(dish: Pick<Dish, "scores" | "profile">, eater: Eater): Experience {
+export function experienceOf(dish: Pick<Dish, "scores" | "profile" | "process">, eater: Eater): Experience {
   const { scores, profile: p } = dish;
   const comments: string[] = [];
 
@@ -47,6 +48,11 @@ export function experienceOf(dish: Pick<Dish, "scores" | "profile">, eater: Eate
   v += (1 - eater.adventurous) * (scores.culture - 50) * 0.2;
   if (eater.adventurous < 0.4 && scores.originality >= 70) comments.push("見慣れなくて少し不安");
   if (eater.adventurous >= 0.5 && scores.originality >= 65) comments.push("新しい驚きがある");
+
+  // 仕上げとの相性 (Phase 2 dishes only).
+  const finish = finishExperienceBonus(dish.process?.finish, eater);
+  v += finish;
+  if (finish >= 3) comments.push("盛り付けが好み");
 
   if (p.undercooked) {
     v -= 25;

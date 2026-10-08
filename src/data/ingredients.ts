@@ -61,6 +61,9 @@ export const INGREDIENTS: Ingredient[] = [
   // 乳製品
   ing("milk", "牛乳", "🥛", "dairy", "farm", [4, 0, 0, 0, 2, 2], [9, 4, 3, 0], "soft", [4, 4, 4, 3, 6], [1, 2, 8, 6], 8),
   ing("butter", "バター", "🧈", "dairy", "market", [1, 1, 0, 0, 2, 6], [2, 10, 0, 2], "soft", [10, 0, 10, 0, 2], [3, 5, 6, 5], 7),
+  // 調味料
+  ing("salt", "塩", "🧂", "seasoning", "market", [0, 10, 0, 1, 1, 0], [0, 0, 0, 5], "firm", [0, 0, 0, 0, 3], [1, 1, 9, 9], 10),
+  ing("vinegar", "酢", "🍶", "seasoning", "market", [1, 1, 9, 1, 2, 4], [9, 0, 0, 0], "soft", [0, 0, 0, 1, 2], [2, 2, 7, 8], 7),
   ing("cheese", "チーズ", "🧀", "dairy", "market", [1, 6, 2, 1, 9, 7], [4, 7, 7, 4], "soft", [7, 7, 7, 0, 5], [4, 5, 5, 6], 7),
 ];
 
@@ -72,6 +75,7 @@ export const CATEGORY_LABEL: Record<IngredientCategory, string> = {
   animal: "動物性",
   plant: "植物系",
   dairy: "乳製品",
+  seasoning: "調味料",
 };
 
 export const MAX_INGREDIENTS = 6;

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Dish } from "../types";
+import { formatDays } from "../game/process/simulate";
 import { INGREDIENT_MAP } from "../data/ingredients";
 import { BODY_LABEL } from "../game/labels";
 import { stepLabel } from "./stepLabel";
@@ -101,12 +102,15 @@ export function DishDetail({ dish, onRename, onTogglePublic, onDerive, showMeta 
         )}
       </div>
 
+      {dish.process && <ProcessSummary dish={dish} />}
+
       {showMeta && (
         <div className="space-y-1 rounded-lg bg-stone-100 p-2 text-xs text-stone-600">
           <div className="break-all">生成キー：{dish.generationKey}</div>
           <div className="break-all">ID：{dish.id}</div>
           <div className="break-all">親料理ID：{dish.parentDishId ?? "なし（オリジナル）"}</div>
           <div>公開状態：{dish.isPublic ? "公開" : "非公開"}</div>
+          {dish.process && <div>調理シード：{dish.process.cookingSeed.toString(36)}・料理人Lv{dish.process.chefLevel}</div>}
         </div>
       )}
 
@@ -124,6 +128,30 @@ export function DishDetail({ dish, onRename, onTogglePublic, onDerive, showMeta 
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+const GRADE_JA = { criticalFail: "大失敗", fail: "失敗", success: "成功", great: "大成功", miracle: "奇跡" } as const;
+
+function ProcessSummary({ dish }: { dish: Dish }) {
+  const p = dish.process!;
+  const counts = p.outcomes
+    .filter((o) => p.steps[o.index]?.kind !== "add")
+    .reduce<Record<string, number>>((acc, o) => ({ ...acc, [o.grade]: (acc[o.grade] ?? 0) + 1 }), {});
+  const failures = p.outcomes.filter((o) => o.failure).map((o) => o.failure);
+  return (
+    <div className="space-y-0.5 rounded-lg bg-amber-50 p-2 text-xs text-stone-700">
+      <div>工程判定：{(Object.keys(GRADE_JA) as (keyof typeof GRADE_JA)[]).filter((g) => counts[g]).map((g) => `${GRADE_JA[g]}${counts[g]}`).join("・")}</div>
+      {failures.length > 0 && <div>失敗記録：{failures.join("、")}</div>}
+      {p.finalLine.history.length > 0 && (
+        <div>配合：{p.finalLine.history.map((h) => `${h.label} ${Math.round(h.ratio * 100)}%`).join(" ＋ ")}</div>
+      )}
+      <div>調理時間：{formatDays(p.totalDays)}・流派：{p.schoolName}</div>
+      {(p.finish.vessel || p.finish.freeText) && (
+        <div>仕上げ：{[p.finish.vessel, p.finish.plating, p.finish.aroma].filter(Boolean).join("・")}{p.finish.freeText && `「${p.finish.freeText}」`}</div>
+      )}
+      {p.finishReview.warnings.map((w) => <div key={w} className="text-red-700">⚠ {w}</div>)}
     </div>
   );
 }

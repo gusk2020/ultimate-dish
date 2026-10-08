@@ -30,7 +30,7 @@ export interface Resource {
   sustainability: number; // 0-10
 }
 
-export type IngredientCategory = "animal" | "plant" | "dairy";
+export type IngredientCategory = "animal" | "plant" | "dairy" | "seasoning";
 /** Where on the village map an ingredient comes from. */
 export type SourceId = "farm" | "hunt" | "market";
 
@@ -181,6 +181,8 @@ export interface Dish {
   createdAt: number;
   /** Reserved for the future cooking guild (online). Always 0 offline. */
   guild: { favorites: number; reproductions: number };
+  /** Present for dishes made in the line kitchen (Phase 2). */
+  process?: import("./world").DishProcessInfo;
 }
 
 export interface Eater {
@@ -239,4 +241,4 @@ export interface WorldClock {
   weather: "sunny" | "cloudy" | "rain" | "snow";
 }
 
-export type ScreenId = "village" | "kitchen" | "quests" | "dex";
+export type ScreenId = "village" | "chef" | "kitchen" | "quests" | "dex";

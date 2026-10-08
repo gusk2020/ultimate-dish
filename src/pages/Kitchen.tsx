@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Dish, Ingredient, Step, TasteKey } from "../types";
 import { CATEGORY_LABEL, INGREDIENTS, MAX_INGREDIENTS } from "../data/ingredients";
 import { METHODS } from "../data/methods";
@@ -8,6 +8,7 @@ import { useGame } from "../state/GameContext";
 import { completeDish } from "../state/completeDish";
 import { DishDetail } from "../components/DishDetail";
 import { stepLabel } from "../components/stepLabel";
+import { LineKitchen } from "./LineKitchen";
 
 const MAX_STEPS = 8;
 const TASTE_SHORT: Record<TasteKey, string> = {
@@ -21,7 +22,7 @@ function traits(i: Ingredient): string {
   return `${t.map(([k]) => TASTE_SHORT[k]).join("")}・${tex}`;
 }
 
-export function Kitchen() {
+function SimpleKitchen() {
   const { state, dispatch } = useGame();
   const [ingredientIds, setIngredientIds] = useState<string[]>([]);
   const [steps, setSteps] = useState<Step[]>([]);
@@ -220,6 +221,36 @@ export function Kitchen() {
           {busy ? "調理中…" : "🍽️ 完成！"}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** 厨房: the Phase 2 line kitchen by default; the Phase 1 quick kitchen is kept as かんたん調理. */
+export function Kitchen() {
+  const { state, dispatch } = useGame();
+  const [mode, setMode] = useState<"line" | "simple">("line");
+  const seed = state.kitchenSeed;
+  useEffect(() => {
+    if (seed) setMode(seed.steps ? "line" : "simple");
+  }, [seed]);
+  const consume = useCallback(() => dispatch({ type: "consumeSeed" }), [dispatch]);
+
+  return (
+    <div>
+      <div className="mx-4 mt-4 grid grid-cols-2 gap-1 rounded-xl bg-stone-200 p-1">
+        {([["line", "工程調理"], ["simple", "かんたん調理（旧）"]] as const).map(([m, l]) => (
+          <button key={m} className={`min-h-10 rounded-lg text-sm ${mode === m ? "bg-white font-bold shadow" : "text-stone-600"}`} onClick={() => setMode(m)}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {mode === "line" ? (
+        <div className="p-4">
+          <LineKitchen seedSteps={seed?.steps} parentDishId={seed?.parentDishId ?? null} onSeedUsed={consume} />
+        </div>
+      ) : (
+        <SimpleKitchen />
+      )}
     </div>
   );
 }

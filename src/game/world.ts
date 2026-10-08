@@ -1,0 +1,157 @@
+import { itemInfo, newStack, STORAGE_MAP } from "../data/items";
+import { RECOVERY_MAP, SKILL_MAP, skillForMethod } from "../data/phase2";
+import { INGREDIENT_MAP } from "../data/ingredients";
+import type { Dish, Rank } from "../types";
+import type { Chef, InventoryStack, ProcessStep, ProcessResult, School, SkillId, ToolState } from "../types/world";
+import { gainXp, type LevelUpLog } from "./chef/leveling";
+import { maxMP, skillLevel } from "./chef/stats";
+import { findSchool } from "./school/school";
+import { ageInventory, consume, storageLoad, upkeepPerDay } from "./inventory/inventory";
+import { seedFrom } from "./rng";
+
+// Pure state transitions for the Phase 2 world. The React reducer only calls these.
+
+export interface World {
+  day: number; // real number, in days
+  chef: Chef;
+  inventory: InventoryStack[];
+  tools: ToolState[];
+  customSchools: School[];
+  stackCounter: number;
+}
+
+/** Natural MP recovery per day, as a share of max MP. */
+export const MP_REGEN_PER_DAY = 0.5;
+export const REST_DAYS = 0.25;
+export const REST_MP_SHARE = 0.4;
+
+export function advanceTime(w: World, days: number): World {
+  if (days <= 0) return w;
+  const max = maxMP(w.chef);
+  const mp = Math.min(max, Math.floor(w.chef.mp + max * MP_REGEN_PER_DAY * days));
+  const upkeep = Math.round(upkeepPerDay(w.inventory) * days * 100) / 100;
+  return {
+    ...w,
+    day: w.day + days,
+    inventory: ageInventory(w.inventory, days),
+    chef: { ...w.chef, mp, money: Math.round((w.chef.money - upkeep) * 100) / 100 },
+  };
+}
+
+export function rest(w: World): World {
+  const after = advanceTime(w, REST_DAYS);
+  const max = maxMP(after.chef);
+  return { ...after, chef: { ...after.chef, mp: Math.min(max, after.chef.mp + Math.ceil(max * REST_MP_SHARE)) } };
+}
+
+export function buy(w: World, itemId: string, quantity: number, storageId: string): World | string {
+  const info = itemInfo(itemId);
+  const storage = STORAGE_MAP[storageId];
+  if (!info || !storage) return "不明な品物";
+  const cost = info.price * quantity;
+  if (w.chef.money < cost) return "お金が足りない";
+  if (storageLoad(w.inventory, storageId) + quantity > storage.capacity) return `${storage.name}がいっぱい`;
+  const stack = newStack(itemId, quantity, storageId, "市場", w.day, w.stackCounter + 1000);
+  return {
+    ...w,
+    stackCounter: w.stackCounter + 1,
+    inventory: [...w.inventory, stack],
+    chef: { ...w.chef, money: w.chef.money - cost },
+  };
+}
+
+const RANK_XP: Record<Rank, number> = { D: 0, C: 3, B: 6, A: 10, S: 15, Legendary: 25 };
+
+export interface CookingGains {
+  xp: number;
+  skillXp: Partial<Record<SkillId, number>>;
+  levelUps: LevelUpLog[];
+  newSkills: SkillId[];
+}
+
+/** Applies a finished cook: consumes stock, MP and tool durability, advances time, grants growth. */
+export function completeCooking(
+  w: World,
+  steps: ProcessStep[],
+  result: ProcessResult,
+  dish: Dish,
+): { world: World; gains: CookingGains } | string {
+  let inventory = w.inventory;
+  const take = (id: string, amount: number) => {
+    const next = consume(inventory, id, amount);
+    if (!next) throw new Error(`${itemInfo(id)?.name ?? id}が足りない`);
+    inventory = next;
+  };
+  try {
+    for (const s of steps) {
+      if (s.kind === "add") take(s.itemId, s.amount);
+      if (s.kind === "recover" && RECOVERY_MAP[s.recoverId]?.needsItem) {
+        const n = RECOVERY_MAP[s.recoverId].needsItem!;
+        take(n.itemId, n.amount);
+      }
+    }
+  } catch (e) {
+    return (e as Error).message;
+  }
+
+  const tools = w.tools.map((t) => {
+    const uses = steps.filter((s) => s.kind === "tool" && s.toolId === t.toolId).length;
+    return uses ? { ...t, durability: Math.max(0, t.durability - uses) } : t;
+  });
+
+  // Growth: skill xp per step (school multipliers apply), one mastery point for the school.
+  const chef0 = w.chef;
+  const school = chef0.activeSchoolId;
+  const mult = (id: SkillId) => findSchool(school, w.customSchools).skillXpMult[id] ?? 1;
+  const skillXp: Partial<Record<SkillId, number>> = {};
+  const addSkill = (id: SkillId, n: number) => (skillXp[id] = (skillXp[id] ?? 0) + Math.round(n * mult(id)));
+  const techniqueCounts = { ...chef0.records.techniqueCounts };
+  result.outcomes.forEach((o) => {
+    const s = steps[o.index];
+    const bonus = o.grade === "great" || o.grade === "miracle" ? 2 : o.grade === "success" ? 1 : 0.5;
+    if (s.kind === "method") {
+      addSkill(skillForMethod(s.methodId), 6 * bonus);
+      techniqueCounts[s.methodId] = (techniqueCounts[s.methodId] ?? 0) + 1;
+      if (skillForMethod(s.methodId) === "fire" && (chef0.records.skillXp.fire ?? 0) >= 200) addSkill("preciseFire", 4 * bonus);
+    } else if (s.kind === "tool") {
+      addSkill("magitool", 8 * bonus);
+      if ((chef0.records.skillXp.magitool ?? 0) >= 200) addSkill("multiTool", 4 * bonus);
+    } else if (s.kind === "merge" || s.kind === "recover") addSkill("seasoning", 6 * bonus);
+  });
+  const records = {
+    ...chef0.records,
+    skillXp: { ...chef0.records.skillXp },
+    techniqueCounts,
+    schoolMastery: { ...chef0.records.schoolMastery, [school]: (chef0.records.schoolMastery[school] ?? 0) + 1 },
+    genreCounts: { ...chef0.records.genreCounts },
+    achievements: [...chef0.records.achievements],
+    dishesCooked: chef0.records.dishesCooked + 1,
+  };
+  const before = new Set(learnedSkills(chef0));
+  for (const [k, v] of Object.entries(skillXp) as [SkillId, number][]) records.skillXp[k] = (records.skillXp[k] ?? 0) + v;
+  const mainCat = INGREDIENT_MAP[dish.recipe.ingredientIds[0]]?.category ?? "other";
+  records.genreCounts[mainCat] = (records.genreCounts[mainCat] ?? 0) + 1;
+  if (result.outcomes.some((o) => o.grade === "miracle") && !records.achievements.includes("奇跡の一皿")) {
+    records.achievements.push("奇跡の一皿");
+  }
+
+  const xp = 8 + 2 * result.stepCount + RANK_XP[dish.rank];
+  const { chef: leveled, levelUps } = gainXp(
+    { ...chef0, records, mp: Math.max(0, chef0.mp - result.mpCost), allocationLocked: true },
+    xp,
+    seedFrom(dish.generationKey, dish.process?.cookingSeed ?? 0, "level"),
+  );
+  const newSkills = learnedSkills(leveled).filter((s) => !before.has(s));
+
+  const world = advanceTime({ ...w, inventory, tools, chef: leveled }, result.totalDays);
+  return { world, gains: { xp, skillXp, levelUps, newSkills } };
+}
+
+/** Skills with level ≥ 1, derived ones only once their prerequisite is met. */
+export function learnedSkills(chef: Chef): SkillId[] {
+  return (Object.keys(SKILL_MAP) as SkillId[]).filter((id) => {
+    const req = SKILL_MAP[id].requires;
+    if (req && skillLevel(chef, req.skill) < req.level) return false;
+    return skillLevel(chef, id) >= 1;
+  });
+}
