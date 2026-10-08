@@ -1,0 +1,87 @@
+// Recipe book for the everyday kitchen (レシピ調理). Each school can add its own basics here.
+
+export type SalesTag =
+  | "light" | "soup" | "preserved" | "bread" // 朝向き
+  | "deli" | "staple" | "worker" // 昼向き
+  | "meat" | "luxury" | "snack" // 夕向き
+  | "family" | "healthy";
+
+export const SALES_TAG_LABEL: Record<SalesTag, string> = {
+  light: "軽食", soup: "スープ", preserved: "保存食", bread: "パン系", deli: "総菜", staple: "主食",
+  worker: "労働者向け", meat: "肉料理", luxury: "豪華", snack: "酒肴", family: "家族向け", healthy: "滋養",
+};
+
+export interface RecipeLine {
+  itemId: string;
+  amount: number; // per portion
+}
+
+export interface RecipeDef {
+  id: string;
+  name: string;
+  schoolId: string;
+  ingredients: RecipeLine[];
+  seasonings: RecipeLine[];
+  basePortions: number;
+  difficulty: number; // 1 (easy) .. 5 (precise)
+  baseTimeDays: number; // for basePortions
+  baseStamina: number;
+  baseMagic: number; // MP before any tool
+  toolCompat: string[]; // magic tools that make sense here
+  salesTags: SalesTag[];
+  /** Internal step template (2-4 judgements). Labels are what the player sees. */
+  steps: { label: string; methodId: string }[];
+}
+
+export const RECIPES: RecipeDef[] = [
+  {
+    id: "rabbit-stew",
+    name: "兎肉と野菜の煮込み",
+    schoolId: "village",
+    ingredients: [{ itemId: "rabbit", amount: 0.5 }, { itemId: "onion", amount: 0.5 }, { itemId: "cabbage", amount: 0.5 }],
+    seasonings: [{ itemId: "salt", amount: 0.1 }],
+    basePortions: 1,
+    difficulty: 2,
+    baseTimeDays: 0.05,
+    baseStamina: 6,
+    baseMagic: 0,
+    toolCompat: ["stone", "pot"],
+    salesTags: ["deli", "staple", "family"],
+    steps: [{ label: "下処理", methodId: "cut" }, { label: "煮込み", methodId: "boil" }],
+  },
+  {
+    id: "boar-herb-roast",
+    name: "猪肉の香草焼き",
+    schoolId: "village",
+    ingredients: [{ itemId: "boar", amount: 0.5 }, { itemId: "herb", amount: 0.3 }, { itemId: "garlic", amount: 0.2 }],
+    seasonings: [{ itemId: "salt", amount: 0.1 }],
+    basePortions: 1,
+    difficulty: 3,
+    baseTimeDays: 0.04,
+    baseStamina: 8,
+    baseMagic: 0,
+    toolCompat: ["stone", "pot"],
+    salesTags: ["meat", "snack", "worker"],
+    steps: [{ label: "下処理", methodId: "cut" }, { label: "火入れ", methodId: "grill" }],
+  },
+  {
+    id: "bean-wheat-soup",
+    name: "豆と麦の滋養スープ",
+    schoolId: "village",
+    ingredients: [{ itemId: "beans", amount: 0.4 }, { itemId: "wheat", amount: 0.4 }, { itemId: "onion", amount: 0.3 }],
+    seasonings: [{ itemId: "salt", amount: 0.1 }],
+    basePortions: 1,
+    difficulty: 1,
+    baseTimeDays: 0.06,
+    baseStamina: 4,
+    baseMagic: 0,
+    toolCompat: ["stone", "jar"],
+    salesTags: ["soup", "light", "healthy"],
+    steps: [{ label: "炒め", methodId: "saute" }, { label: "煮込み", methodId: "boil" }],
+  },
+];
+
+export const RECIPE_MAP: Record<string, RecipeDef> = Object.fromEntries(RECIPES.map((r) => [r.id, r]));
+
+/** Recipes known at game start: the basics of the starting school. */
+export const STARTING_RECIPES = RECIPES.filter((r) => r.schoolId === "village").map((r) => r.id);

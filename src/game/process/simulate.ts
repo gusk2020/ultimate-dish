@@ -23,6 +23,8 @@ export interface ProcessContext {
   inventory: InventoryStack[];
   tools: ToolState[];
   seed: number;
+  /** Extra success modifier from outside the process (low stamina, batch size). Default 0. */
+  chanceModifier?: number;
 }
 
 const GRADE_QUALITY: Record<StepGrade, number> = {
@@ -59,6 +61,7 @@ export function methodChance(methodId: string, ctx: ProcessContext, complexity: 
   p += 0.12 * eff(skillLevel(chef, skill), 10);
   if (heat && skillLevel(chef, "preciseFire") >= 1) p += 0.08;
   p += school.methodSuccess[methodId] ?? 0;
+  p += ctx.chanceModifier ?? 0;
   // 複雑化: each step past the third costs more; technique and knowledge soften it.
   p -= 0.03 * Math.max(0, complexity - 3) * (1 - 0.6 * eff(s.tech + s.knowledge, 40));
   p -= 0.03 * Math.max(0, amount - 3);

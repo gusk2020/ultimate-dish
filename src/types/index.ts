@@ -241,4 +241,4 @@ export interface WorldClock {
   weather: "sunny" | "cloudy" | "rain" | "snow";
 }
 
-export type ScreenId = "village" | "chef" | "kitchen" | "quests" | "dex";
+export type ScreenId = "village" | "chef" | "kitchen" | "sales" | "quests" | "dex";

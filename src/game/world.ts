@@ -2,9 +2,12 @@ import { itemInfo, newStack, STORAGE_MAP } from "../data/items";
 import { RECOVERY_MAP, SKILL_MAP, skillForMethod } from "../data/phase2";
 import { INGREDIENT_MAP } from "../data/ingredients";
 import type { Dish, Rank } from "../types";
-import type { Chef, InventoryStack, ProcessStep, ProcessResult, School, SkillId, ToolState } from "../types/world";
+import type { Chef, Contract, DishStock, InventoryStack, ProcessStep, ProcessResult, School, SkillId, ToolState } from "../types/world";
+import { initialInventory } from "../data/items";
+import { initialTools } from "../data/phase2";
+import { STARTING_RECIPES } from "../data/recipes";
 import { gainXp, type LevelUpLog } from "./chef/leveling";
-import { maxMP, skillLevel } from "./chef/stats";
+import { createDefaultChef, maxMP, maxStamina, skillLevel } from "./chef/stats";
 import { findSchool } from "./school/school";
 import { ageInventory, consume, storageLoad, upkeepPerDay } from "./inventory/inventory";
 import { seedFrom } from "./rng";
@@ -18,12 +21,42 @@ export interface World {
   tools: ToolState[];
   customSchools: School[];
   stackCounter: number;
+  // Phase 3
+  knownRecipes: string[];
+  dishStock: DishStock[];
+  contracts: Contract[];
+  contractsSigned: number;
+  /** 地域知名度 by region id. */
+  fame: Record<string, number>;
+  /** 流行: sales tag → -1..1 */
+  trends: Record<string, number>;
+  /** Money flows since the last day end (for the 日報). */
+  ledger: { materialCost: number; purchases: number };
+}
+
+export function createWorld(): World {
+  return {
+    day: 0.25, // morning of day 1
+    chef: createDefaultChef(),
+    inventory: initialInventory(0),
+    tools: initialTools(),
+    customSchools: [],
+    stackCounter: 0,
+    knownRecipes: [...STARTING_RECIPES],
+    dishStock: [],
+    contracts: [],
+    contractsSigned: 0,
+    fame: { village: 5 },
+    trends: { soup: 0.2, meat: 0.1 },
+    ledger: { materialCost: 0, purchases: 0 },
+  };
 }
 
 /** Natural MP recovery per day, as a share of max MP. */
 export const MP_REGEN_PER_DAY = 0.5;
 export const REST_DAYS = 0.25;
 export const REST_MP_SHARE = 0.4;
+export const REST_STAMINA_SHARE = 0.3;
 
 export function advanceTime(w: World, days: number): World {
   if (days <= 0) return w;
@@ -41,7 +74,15 @@ export function advanceTime(w: World, days: number): World {
 export function rest(w: World): World {
   const after = advanceTime(w, REST_DAYS);
   const max = maxMP(after.chef);
-  return { ...after, chef: { ...after.chef, mp: Math.min(max, after.chef.mp + Math.ceil(max * REST_MP_SHARE)) } };
+  const maxSt = maxStamina(after.chef);
+  return {
+    ...after,
+    chef: {
+      ...after.chef,
+      mp: Math.min(max, after.chef.mp + Math.ceil(max * REST_MP_SHARE)),
+      stamina: Math.min(maxSt, after.chef.stamina + Math.ceil(maxSt * REST_STAMINA_SHARE)),
+    },
+  };
 }
 
 export function buy(w: World, itemId: string, quantity: number, storageId: string): World | string {
@@ -57,6 +98,7 @@ export function buy(w: World, itemId: string, quantity: number, storageId: strin
     stackCounter: w.stackCounter + 1,
     inventory: [...w.inventory, stack],
     chef: { ...w.chef, money: w.chef.money - cost },
+    ledger: { ...w.ledger, purchases: w.ledger.purchases + cost },
   };
 }
 
@@ -99,10 +141,25 @@ export function completeCooking(
     return uses ? { ...t, durability: Math.max(0, t.durability - uses) } : t;
   });
 
+  const { chef: leveled, gains } = applyGrowth(
+    { ...w.chef, mp: Math.max(0, w.chef.mp - result.mpCost) }, w.customSchools, steps, result, dish,
+  );
+  const world = advanceTime({ ...w, inventory, tools, chef: leveled }, result.totalDays);
+  return { world, gains };
+}
+
+/** Growth from one cook: skill xp per step (school multipliers apply), school mastery, records, xp. */
+export function applyGrowth(
+  chef0: Chef,
+  customSchools: School[],
+  steps: ProcessStep[],
+  result: ProcessResult,
+  dish: Dish,
+  xpBonus = 0,
+): { chef: Chef; gains: CookingGains } {
   // Growth: skill xp per step (school multipliers apply), one mastery point for the school.
-  const chef0 = w.chef;
   const school = chef0.activeSchoolId;
-  const mult = (id: SkillId) => findSchool(school, w.customSchools).skillXpMult[id] ?? 1;
+  const mult = (id: SkillId) => findSchool(school, customSchools).skillXpMult[id] ?? 1;
   const skillXp: Partial<Record<SkillId, number>> = {};
   const addSkill = (id: SkillId, n: number) => (skillXp[id] = (skillXp[id] ?? 0) + Math.round(n * mult(id)));
   const techniqueCounts = { ...chef0.records.techniqueCounts };
@@ -135,16 +192,15 @@ export function completeCooking(
     records.achievements.push("奇跡の一皿");
   }
 
-  const xp = 8 + 2 * result.stepCount + RANK_XP[dish.rank];
+  const xp = 8 + 2 * result.stepCount + RANK_XP[dish.rank] + xpBonus;
   const { chef: leveled, levelUps } = gainXp(
-    { ...chef0, records, mp: Math.max(0, chef0.mp - result.mpCost), allocationLocked: true },
+    { ...chef0, records, allocationLocked: true },
     xp,
     seedFrom(dish.generationKey, dish.process?.cookingSeed ?? 0, "level"),
   );
   const newSkills = learnedSkills(leveled).filter((s) => !before.has(s));
 
-  const world = advanceTime({ ...w, inventory, tools, chef: leveled }, result.totalDays);
-  return { world, gains: { xp, skillXp, levelUps, newSkills } };
+  return { chef: leveled, gains: { xp, skillXp, levelUps, newSkills } };
 }
 
 /** Skills with level ≥ 1, derived ones only once their prerequisite is met. */
