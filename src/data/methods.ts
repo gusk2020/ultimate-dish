@@ -92,6 +92,31 @@ export const METHODS: CookingMethod[] = [
   },
 ];
 
+// Phase 2 additions used by the line-based kitchen (the old kitchen shows them too).
+METHODS.push(
+  {
+    id: "cut", name: "切る", verb: "切り", systems: [],
+    tasteDelta: {}, physicalDelta: { hardness: -1 },
+    microRetention: 1, safe: false, preserves: false, traditional: true, energyCost: 0,
+    fit: () => 10,
+    hint: "下ごしらえ。火の通りと食感が揃う",
+  },
+  {
+    id: "saute", name: "炒める", verb: "炒め", systems: ["heat"],
+    tasteDelta: { sweet: 1, aroma: 1.5, umami: 0.5 }, physicalDelta: { water: -1, hardness: -1 },
+    microRetention: 0.88, safe: true, preserves: false, traditional: true, energyCost: 1,
+    fit: ({ physical: p }) => (p.water >= 5 ? 15 : 0),
+    hint: "野菜の甘みと香りを引き出す",
+  },
+  {
+    id: "reduce", name: "煮詰める", verb: "煮詰め", systems: ["heat"],
+    tasteDelta: { umami: 1.5, sweet: 0.5, salty: 0.5 }, physicalDelta: { water: -2.5 },
+    microRetention: 0.8, safe: true, preserves: false, traditional: true, energyCost: 1,
+    fit: ({ physical: p }) => (p.water >= 5 ? 20 : -10),
+    hint: "水分を飛ばして味を凝縮。ソース向き",
+  },
+);
+
 export const METHOD_MAP: Record<string, CookingMethod> = Object.fromEntries(
   METHODS.map((m) => [m.id, m]),
 );

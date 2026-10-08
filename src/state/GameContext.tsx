@@ -1,5 +1,10 @@
 import { createContext, useContext, useReducer, type ReactNode } from "react";
 import type { Dish, QuestResult, Recipe, ScreenId, WorldClock } from "../types";
+import type { World } from "../game/world";
+import type { ProcessStep } from "../types/world";
+import { createDefaultChef } from "../game/chef/stats";
+import { initialInventory } from "../data/items";
+import { initialTools } from "../data/phase2";
 
 // One reducer for the whole prototype. In-memory only (reload clears it);
 // persistence / online sync will hook in here later.
@@ -7,6 +12,8 @@ import type { Dish, QuestResult, Recipe, ScreenId, WorldClock } from "../types";
 export interface KitchenSeed {
   recipe: Recipe;
   parentDishId: string | null;
+  /** Set when the parent was cooked in the line kitchen. */
+  steps?: ProcessStep[];
 }
 
 export interface GameState {
@@ -17,6 +24,8 @@ export interface GameState {
   clock: WorldClock;
   /** Prefill for the kitchen when deriving a dish from an existing one. */
   kitchenSeed: KitchenSeed | null;
+  /** Phase 2: chef, inventory, tools, schools, time. Updated through pure functions in game/world.ts. */
+  world: World;
 }
 
 type Action =
@@ -26,7 +35,8 @@ type Action =
   | { type: "togglePublic"; id: string }
   | { type: "questResult"; result: QuestResult }
   | { type: "derive"; dish: Dish }
-  | { type: "consumeSeed" };
+  | { type: "consumeSeed" }
+  | { type: "setWorld"; world: World };
 
 const initialState: GameState = {
   screen: "village",
@@ -35,6 +45,14 @@ const initialState: GameState = {
   questResults: {},
   clock: { day: 1, season: "spring", weather: "sunny" },
   kitchenSeed: null,
+  world: {
+    day: 0.25, // morning of day 1
+    chef: createDefaultChef(),
+    inventory: initialInventory(0),
+    tools: initialTools(),
+    customSchools: [],
+    stackCounter: 0,
+  },
 };
 
 function reducer(state: GameState, a: Action): GameState {
@@ -66,10 +84,12 @@ function reducer(state: GameState, a: Action): GameState {
       return {
         ...state,
         screen: "kitchen",
-        kitchenSeed: { recipe: a.dish.recipe, parentDishId: a.dish.id },
+        kitchenSeed: { recipe: a.dish.recipe, parentDishId: a.dish.id, steps: a.dish.process?.steps },
       };
     case "consumeSeed":
       return { ...state, kitchenSeed: null };
+    case "setWorld":
+      return { ...state, world: a.world, clock: { ...state.clock, day: Math.floor(a.world.day) + 1 } };
   }
 }
 
