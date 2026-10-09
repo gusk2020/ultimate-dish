@@ -16,6 +16,7 @@ import { advanceTime, buy, rest } from "../game/world";
 import { formatDays } from "../game/process/simulate";
 import { useGame } from "../state/GameContext";
 import { Meter } from "../components/DishParts";
+import { PalateCard } from "../components/FoodStoryForm";
 
 type Tab = "status" | "inventory" | "school";
 
@@ -50,6 +51,7 @@ function StatusTab() {
 
   return (
     <div className="space-y-3">
+      <PalateCard />
       <div className="card">
         <div className="flex items-baseline justify-between">
           <span className="text-lg font-bold">Lv {chef.level}</span>

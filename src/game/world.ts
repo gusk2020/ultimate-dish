@@ -4,6 +4,7 @@ import { INGREDIENT_MAP } from "../data/ingredients";
 import type { Dish, Rank } from "../types";
 import type { Chef, Contract, DishStock, InventoryStack, ProcessStep, ProcessResult, School, SkillId, ToolState } from "../types/world";
 import { initialInventory } from "../data/items";
+import type { BattleRecord, EaterProfile, TastingRecord } from "../types/eating";
 import { initialTools } from "../data/phase2";
 import { STARTING_RECIPES } from "../data/recipes";
 import { gainXp, type LevelUpLog } from "./chef/leveling";
@@ -32,6 +33,11 @@ export interface World {
   trends: Record<string, number>;
   /** Money flows since the last day end (for the 日報). */
   ledger: { materialCost: number; purchases: number };
+  // Phase 4
+  /** The player's palate, built from the 食遍歴 questions (null until answered). */
+  palate: EaterProfile | null;
+  tastingLog: TastingRecord[];
+  battleLog: BattleRecord[];
 }
 
 export function createWorld(): World {
@@ -49,6 +55,9 @@ export function createWorld(): World {
     fame: { village: 5 },
     trends: { soup: 0.2, meat: 0.1 },
     ledger: { materialCost: 0, purchases: 0 },
+    palate: null,
+    tastingLog: [],
+    battleLog: [],
   };
 }
 

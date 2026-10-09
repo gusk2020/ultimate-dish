@@ -7,7 +7,7 @@ import { TOOL_MAP } from "../data/magic";
 import { maxStamina, STAT_LABEL } from "../game/chef/stats";
 import { formatDays } from "../game/process/simulate";
 import {
-  buyShortage, eatPortion, finishCook, openFailures, planCook, recoverOnce, startCook, type CookSession,
+  buyShortage, finishCook, openFailures, planCook, recoverOnce, startCook, type CookSession,
 } from "../game/commerce/simpleCook";
 import { recommendedPrice } from "../game/commerce/sales";
 import { EMPTY_FINISH, reviewFinish } from "../game/finish/finish";
@@ -20,6 +20,7 @@ import { imageGenerator } from "../services/imageGeneration";
 import { useGame } from "../state/GameContext";
 import { DishDetail } from "../components/DishDetail";
 import { FinishForm } from "../components/FinishForm";
+import { TastingView } from "../components/TastingView";
 import { GRADE_LABEL, GRADE_STYLE } from "./LineKitchen";
 
 const PORTIONS = [1, 2, 5, 10];
@@ -36,10 +37,11 @@ export function RecipeKitchen() {
   const [finish, setFinish] = useState<FinishInput>(EMPTY_FINISH);
   const [done, setDone] = useState<{ dish: Dish; stock: DishStock; gains: CookingGains } | null>(null);
   const [msg, setMsg] = useState("");
+  const [tasting, setTasting] = useState(false);
 
   const setWorld = (world: typeof w) => dispatch({ type: "setWorld", world });
   const reset = () => {
-    setRecipeId(null); setSession(null); setPhase("plan"); setFinish(EMPTY_FINISH); setDone(null); setMsg(""); setToolId(null);
+    setRecipeId(null); setSession(null); setPhase("plan"); setFinish(EMPTY_FINISH); setDone(null); setMsg(""); setToolId(null); setTasting(false);
   };
 
   // ---------- Done ----------
@@ -56,6 +58,9 @@ export function RecipeKitchen() {
           <div className="text-xs text-stone-600">残り {stock?.portions ?? 0}食・推奨価格 {recommendedPrice(done.stock)}G</div>
         </div>
         {msg && <p className="text-xs text-red-700">{msg}</p>}
+        {tasting && (
+          <TastingView dish={state.dishes.find((d) => d.id === done.dish.id) ?? done.dish} stockId={done.stock.id} onClose={() => setTasting(false)} />
+        )}
         <div className="grid grid-cols-2 gap-2">
           <button
             className="btn-primary col-span-2"
@@ -67,18 +72,10 @@ export function RecipeKitchen() {
           >
             🏪 総菜販売へ回す
           </button>
-          <button
-            className="btn-secondary"
-            disabled={!stock}
-            onClick={() => {
-              const r = eatPortion(w, done.stock.id);
-              if (typeof r === "string") setMsg(r);
-              else setWorld(r);
-            }}
-          >
+          <button className="btn-secondary" disabled={!stock || tasting} onClick={() => setTasting(true)}>
             🍴 自分で食べる
           </button>
-          <button className="btn-secondary" onClick={() => dispatch({ type: "navigate", screen: "quests" })}>📜 依頼へ</button>
+          <button className="btn-secondary" onClick={() => dispatch({ type: "navigate", screen: "quests" })}>⚔️ 依頼・勝負へ</button>
           <button className="btn-secondary col-span-2" onClick={reset}>次の料理を作る</button>
         </div>
       </div>

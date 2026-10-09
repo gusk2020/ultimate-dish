@@ -5,7 +5,7 @@ import { useGame } from "../state/GameContext";
 
 // 2D top-down village: a 4x6 grid with a dirt-road cross. Facilities are tap targets.
 export function VillageMap() {
-  const { dispatch } = useGame();
+  const { state, dispatch } = useGame();
   const [info, setInfo] = useState<Facility | null>(null);
 
   const tap = (f: Facility) => {
@@ -15,6 +15,11 @@ export function VillageMap() {
 
   return (
     <div className="p-4">
+      {!state.world.palate && (
+        <button className="btn-primary mb-3 w-full" onClick={() => dispatch({ type: "navigate", screen: "chef" })}>
+          🍽️ まずはあなたの「食遍歴」を教えてください
+        </button>
+      )}
       <div className="relative aspect-[4/6] w-full overflow-hidden rounded-2xl bg-lime-200 shadow-inner">
         {/* roads */}
         <div className="absolute inset-y-0 left-1/2 w-8 -translate-x-1/2 bg-amber-200/80" />
