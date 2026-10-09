@@ -32,7 +32,8 @@ export interface Resource {
 
 export type IngredientCategory = "animal" | "plant" | "dairy" | "seasoning";
 /** Where on the village map an ingredient comes from. */
-export type SourceId = "farm" | "hunt" | "market";
+/** Where an ingredient comes from. Phase 7 adds the three travel regions. */
+export type SourceId = "farm" | "hunt" | "market" | "river" | "sea" | "mountain";
 
 export interface Ingredient {
   id: string;

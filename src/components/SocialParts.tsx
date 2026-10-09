@@ -287,7 +287,7 @@ export function RelationDetail({ a, b, onBack }: { a: string; b: string; onBack:
               <div>食の相性 {Math.floor(r.foodCompatibility)}</div>
               <div>わだかまり {Math.floor(r.conflicts)}</div>
             </div>
-            <div className="text-xs text-stone-600">段階「{relationStage(r).name}」・傾向「{t!.label}」・一緒に食べた{r.sharedMeals}回・一緒に作った{r.cookedTogether}回</div>
+            <div className="text-xs text-stone-600">段階「{relationStage(r).name}」・傾向「{t!.label}」・一緒に食べた{r.sharedMeals}回・一緒に作った{r.cookedTogether}回{r.traveledTogether > 0 && `・一緒に旅した${r.traveledTogether}回`}</div>
           </>
         ) : <div className="text-xs text-stone-500">まだ関わりがない</div>}
         {c && a === PLAYER && <Profile c={c} />}

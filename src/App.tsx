@@ -1,6 +1,8 @@
 import type { ScreenId } from "./types";
 import { useGame } from "./state/GameContext";
-import { VillageMap } from "./pages/VillageMap";
+import { LocationPage } from "./pages/LocationPage";
+import { locationOf } from "./game/travel/market";
+import { HOME_LOCATION_ID } from "./data/regions";
 import { Kitchen } from "./pages/Kitchen";
 import { Quests } from "./pages/Quests";
 import { Dex } from "./pages/Dex";
@@ -40,7 +42,7 @@ export default function App() {
 
       {/* Pages stay mounted so a half-built recipe survives a peek at the quest board. */}
       <main>
-        <div hidden={state.screen !== "village"}><VillageMap /></div>
+        <div hidden={state.screen !== "village"}><LocationPage /></div>
         <div hidden={state.screen !== "chef"}><ChefPage /></div>
         <div hidden={state.screen !== "people"}><PeoplePage /></div>
         <div hidden={state.screen !== "kitchen"}><Kitchen /></div>
@@ -58,8 +60,9 @@ export default function App() {
               state.screen === t.id ? "font-bold text-amber-700" : "text-stone-500"
             }`}
           >
-            <span className="text-xl leading-none">{t.icon}</span>
-            {t.label}
+            {/* The first tab is "where you are": the village at home, the town's name on the road. */}
+            <span className="text-xl leading-none">{t.id === "village" && world.travel.currentLocationId !== HOME_LOCATION_ID ? locationOf(world).emoji : t.icon}</span>
+            {t.id === "village" ? locationOf(world).shortName : t.label}
             {t.id === "dex" && state.dishes.length > 0 && ` (${state.dishes.length})`}
           </button>
         ))}

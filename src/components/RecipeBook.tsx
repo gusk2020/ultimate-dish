@@ -20,6 +20,7 @@ const SOURCE_LABEL: Record<RecipeSource, string> = {
   book: "書庫の記録で見つけた",
   battle: "勝負の報酬で知った",
   derived: "自分で派生させた",
+  region: "旅先で教わった",
 };
 
 const STAGE_STYLE = ["bg-stone-100 text-stone-700", "bg-sky-100 text-sky-800", "bg-violet-100 text-violet-800", "bg-amber-200 text-amber-900"];
@@ -86,7 +87,7 @@ export function RecipeBookList({ onPick, onIdea, schoolName }: { onPick: (id: st
       {known.map((r) => <RecipeCard key={r.id} w={w} r={r} onPick={onPick} />)}
       {unknown > 0 && (
         <div className="rounded-xl border border-dashed border-stone-300 p-2 text-center text-xs text-stone-500">
-          ❔ 未知のレシピ あと{unknown}品<br />村の人・書庫・料理勝負で見つかることがある
+          ❔ 未知のレシピ あと{unknown}品<br />村の人・書庫・料理勝負・旅先で見つかることがある
         </div>
       )}
     </div>

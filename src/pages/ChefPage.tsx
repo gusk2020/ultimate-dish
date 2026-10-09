@@ -4,19 +4,19 @@ import { itemInfo, STORAGES } from "../data/items";
 import { FUSION_DIRECTIONS, SCHOOLS, SKILLS, TOOL_RULES } from "../data/phase2";
 import { TOOL_MAP } from "../data/magic";
 import { METHOD_MAP } from "../data/methods";
-import { INGREDIENTS } from "../data/ingredients";
-import { SPICES } from "../data/magic";
 import {
   checkAllocation, ingredientCapacity, INITIAL_MAX, maxMP, maxSteps, skillLevel, skillStage, STAT_LABEL, STAT_MIN, toolSlots,
 } from "../game/chef/stats";
 import { xpToNext } from "../game/chef/leveling";
 import { STATE_LABEL, storageLoad, upkeepPerDay } from "../game/inventory/inventory";
 import { canFuse, findSchool, fuseSchools, switchSchool } from "../game/school/school";
-import { advanceTime, buy, rest } from "../game/world";
+import { advanceTime, rest } from "../game/world";
 import { formatDays } from "../game/process/simulate";
 import { useGame } from "../state/GameContext";
 import { Meter } from "../components/DishParts";
 import { PalateCard } from "../components/FoodStoryForm";
+import { MarketList } from "../components/MarketList";
+import { FoundingCard } from "../components/FoundingCard";
 
 type Tab = "status" | "inventory" | "school";
 
@@ -133,9 +133,6 @@ function StatusTab() {
 function InventoryTab() {
   const { state, dispatch } = useGame();
   const w = state.world;
-  const [msg, setMsg] = useState("");
-  const buyable = [...INGREDIENTS, ...SPICES].map((i) => itemInfo(i.id)!).filter(Boolean);
-  const defaultStorage = (id: string) => (itemInfo(id)?.category === "animal" || itemInfo(id)?.category === "dairy" ? "icehouse" : "shelf");
 
   return (
     <div className="space-y-3">
@@ -178,29 +175,7 @@ function InventoryTab() {
         );
       })}
 
-      <div className="card">
-        <h2 className="section-title">市場で買う（固定価格）</h2>
-        {msg && <p className="mb-1 text-xs text-red-700">{msg}</p>}
-        <div className="grid grid-cols-2 gap-1.5">
-          {buyable.map((i) => (
-            <button
-              key={i.id}
-              className="chip flex-row justify-between px-2"
-              onClick={() => {
-                const r = buy(w, i.id, 1, defaultStorage(i.id));
-                if (typeof r === "string") setMsg(r);
-                else {
-                  setMsg("");
-                  dispatch({ type: "setWorld", world: r });
-                }
-              }}
-            >
-              <span className="text-sm">{i.emoji}{i.name}</span>
-              <span className="text-xs text-stone-500">{i.price}G</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <MarketList />
     </div>
   );
 }
@@ -226,6 +201,7 @@ function SchoolTab() {
 
   return (
     <div className="space-y-3">
+      <FoundingCard />
       <div className="card">
         <h2 className="section-title">流派（有効なのは1つ）</h2>
         <div className="space-y-1.5">

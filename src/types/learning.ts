@@ -2,7 +2,7 @@
 
 /** unknown = absent from the book; trialAvailable is derived (known + requirements met). */
 export type RecipeStatus = "unknown" | "known" | "trialAvailable" | "mastered";
-export type RecipeSource = "start" | "npc" | "book" | "battle" | "derived";
+export type RecipeSource = "start" | "npc" | "book" | "battle" | "derived" | "region";
 
 /** What the player has actually done with a recipe — the source for derivation ideas. */
 export interface RecipeHistory {
