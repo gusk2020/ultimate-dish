@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { Dish } from "../types";
 import type { DishStock, FinishInput } from "../types/world";
-import { RECIPE_MAP, SALES_TAG_LABEL, type SalesTag } from "../data/recipes";
 import { itemInfo } from "../data/items";
 import { TOOL_MAP } from "../data/magic";
 import { maxStamina, STAT_LABEL } from "../game/chef/stats";
@@ -13,6 +12,8 @@ import { recommendedPrice } from "../game/commerce/sales";
 import { EMPTY_FINISH, reviewFinish } from "../game/finish/finish";
 import { findSchool } from "../game/school/school";
 import type { CookingGains } from "../game/world";
+import type { LearningEvent } from "../types/learning";
+import { getRecipe, recipeStatus } from "../game/learning/recipeBook";
 import { newCookingSeed } from "../game/rng";
 import { SKILL_MAP } from "../data/phase2";
 import { textGenerator } from "../services/textGeneration";
@@ -22,6 +23,7 @@ import { DishDetail } from "../components/DishDetail";
 import { FinishForm } from "../components/FinishForm";
 import { TastingView } from "../components/TastingView";
 import { GRADE_LABEL, GRADE_STYLE } from "./LineKitchen";
+import { IdeaAdopt, LearningResult, RecipeBookList, RecipeInfo } from "../components/RecipeBook";
 
 const PORTIONS = [1, 2, 5, 10];
 
@@ -35,13 +37,14 @@ export function RecipeKitchen() {
   const [session, setSession] = useState<CookSession | null>(null);
   const [phase, setPhase] = useState<"plan" | "cooked" | "finish">("plan");
   const [finish, setFinish] = useState<FinishInput>(EMPTY_FINISH);
-  const [done, setDone] = useState<{ dish: Dish; stock: DishStock; gains: CookingGains } | null>(null);
+  const [done, setDone] = useState<{ dish: Dish; stock: DishStock; gains: CookingGains; learning: LearningEvent; name: string } | null>(null);
+  const [ideaId, setIdeaId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [tasting, setTasting] = useState(false);
 
   const setWorld = (world: typeof w) => dispatch({ type: "setWorld", world });
   const reset = () => {
-    setRecipeId(null); setSession(null); setPhase("plan"); setFinish(EMPTY_FINISH); setDone(null); setMsg(""); setToolId(null); setTasting(false);
+    setRecipeId(null); setSession(null); setPhase("plan"); setFinish(EMPTY_FINISH); setDone(null); setMsg(""); setToolId(null); setTasting(false); setIdeaId(null);
   };
 
   // ---------- Done ----------
@@ -52,6 +55,7 @@ export function RecipeKitchen() {
       <div className="space-y-3">
         <div className="text-center text-sm font-semibold text-emerald-700">✨ {done.stock.portions}食 完成！図鑑に登録しました</div>
         <div className="card"><DishDetail dish={state.dishes.find((d) => d.id === done.dish.id) ?? done.dish} showMeta={false} /></div>
+        <LearningResult name={done.name} event={done.learning} onIdea={() => { const id = done.learning.newIdeas[0]?.id; reset(); if (id) setIdeaId(id); }} />
         <div className="card text-sm">
           <div>経験値 +{g.xp}{g.levelUps.map((l) => `　🎉 Lv${l.level}！（${Object.entries(l.gains).map(([k, v]) => `${STAT_LABEL[k as keyof typeof STAT_LABEL]}+${v}`).join(" ")}）`).join("")}</div>
           <div className="text-xs text-stone-600">熟練：{Object.entries(g.skillXp).map(([k, v]) => `${SKILL_MAP[k as keyof typeof SKILL_MAP]?.name ?? k}+${v}`).join("、") || "なし"}</div>
@@ -82,34 +86,25 @@ export function RecipeKitchen() {
     );
   }
 
-  // ---------- Recipe list ----------
-  if (!recipeId) {
+  // ---------- Derivation idea ----------
+  if (ideaId) {
+    return <IdeaAdopt key={ideaId} ideaId={ideaId} onClose={() => setIdeaId(null)} onAdopted={(id) => { setIdeaId(null); setRecipeId(id); setToolId(null); }} />;
+  }
+
+  // ---------- Recipe book ----------
+  const recipe = recipeId ? getRecipe(w, recipeId) : undefined;
+  if (!recipeId || !recipe) {
     return (
-      <div className="space-y-2">
-        <p className="text-xs text-stone-500">習得済みレシピ（{findSchool(w.chef.activeSchoolId, w.customSchools).name}の流派で調理）</p>
-        {w.knownRecipes.map((id) => {
-          const r = RECIPE_MAP[id];
-          return (
-            <button key={id} className="card w-full text-left active:bg-stone-50" onClick={() => { setRecipeId(id); setToolId(null); }}>
-              <div className="flex justify-between">
-                <span className="font-bold">{r.name}</span>
-                <span className="text-xs text-stone-500">難度{"★".repeat(r.difficulty)}</span>
-              </div>
-              <div className="text-xs text-stone-600">
-                {r.ingredients.concat(r.seasonings).map((l) => `${itemInfo(l.itemId)?.emoji}${itemInfo(l.itemId)?.name}${l.amount}`).join(" ")}（1食分）
-              </div>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {r.salesTags.map((t) => <span key={t} className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px]">{SALES_TAG_LABEL[t as SalesTag]}</span>)}
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      <RecipeBookList
+        schoolName={findSchool(w.chef.activeSchoolId, w.customSchools).name}
+        onPick={(id) => { setRecipeId(id); setToolId(null); }}
+        onIdea={setIdeaId}
+      />
     );
   }
 
-  const recipe = RECIPE_MAP[recipeId];
   const plan = planCook(w, recipeId, portions, toolId);
+  const trial = recipeStatus(w, recipeId) !== "mastered";
 
   // ---------- Cooked: step results, recovery ----------
   if (session && phase !== "plan") {
@@ -137,7 +132,7 @@ export function RecipeKitchen() {
                 const dish: Dish = { ...out.dish, description, image };
                 dispatch({ type: "addDish", dish });
                 setWorld(out.world);
-                setDone({ dish, stock: out.stock, gains: out.gains });
+                setDone({ dish, stock: out.stock, gains: out.gains, learning: out.learning, name: recipe.name });
                 window.scrollTo({ top: 0 });
               }}
             >
@@ -162,6 +157,7 @@ export function RecipeKitchen() {
             ))}
           </ul>
           {fails.length > 0 && <p className="mt-2 text-xs text-rose-700">残っている失敗：{fails.join("、")}</p>}
+          {trial && <p className="mt-1 text-xs text-emerald-800">🧪 試作中：失敗が残らず、ランクD以外で仕上がれば習得{fails.length > 0 && "（挽回すると習得に近づく）"}</p>}
           {msg && <p className="mt-1 text-xs text-red-700">{msg}</p>}
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -190,7 +186,8 @@ export function RecipeKitchen() {
     <div className="space-y-3">
       <button className="text-sm text-stone-500 underline" onClick={() => setRecipeId(null)}>← レシピ一覧</button>
       <div className="card space-y-2">
-        <h2 className="section-title mb-0">{recipe.name}</h2>
+        <h2 className="section-title mb-0">{trial && <span className="mr-1 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">試作</span>}{recipe.name}</h2>
+        <RecipeInfo w={w} id={recipeId} />
         <div className="text-xs text-stone-500">何食分作る？</div>
         <div className="grid grid-cols-5 gap-1.5">
           {PORTIONS.map((n) => (
@@ -271,7 +268,7 @@ export function RecipeKitchen() {
           setPhase("cooked");
         }}
       >
-        🔥 調理開始
+        {trial ? "🧪 試作開始" : "🔥 調理開始"}
       </button>
     </div>
   );

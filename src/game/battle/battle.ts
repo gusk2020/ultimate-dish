@@ -19,6 +19,7 @@ import { createRng, seedFrom } from "../rng";
 import { findSchool } from "../school/school";
 import { tastingReporter } from "../../services/tastingReport";
 import type { World } from "../world";
+import { discoverRecipe } from "../learning/recipeBook";
 
 // 料理勝負: one dish each, judged by 1–3 eaters. The verdict blends the dish's absolute
 // evaluation, each judge's tasting (preference, culture, condition) and theme fit.
@@ -190,14 +191,18 @@ export function runBattle(w: World, def: BattleDef, playerDish: TastableDish & {
 /** Pays rewards (xp / money now; ingredients, recipes, skills… reserved) and records the match. */
 export function applyBattleResult(w: World, result: BattleResult): World {
   let chef = w.chef;
+  let recipeBookWorld = w;
   for (const r of result.rewards) {
     if (r.kind === "money") chef = { ...chef, money: chef.money + (r.amount ?? 0) };
     if (r.kind === "xp") chef = gainXp(chef, r.amount ?? 0, seedFrom(result.seed, "battle-xp")).chef;
+    // レシピ報酬: the recipe becomes known (trial still needed), never mastered outright.
+    if (r.kind === "recipe" && r.id) recipeBookWorld = discoverRecipe(recipeBookWorld, r.id, "battle").world;
   }
   const def = BATTLE_MAP[result.battleId];
   const fameGain = result.winner === "player" ? (def.kind === "formal" ? 3 : 1) : 0;
   return {
     ...w,
+    recipeBook: recipeBookWorld.recipeBook,
     chef,
     fame: { ...w.fame, village: (w.fame.village ?? 0) + fameGain },
     battleLog: [

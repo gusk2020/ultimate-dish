@@ -31,7 +31,29 @@ export interface RecipeDef {
   salesTags: SalesTag[];
   /** Internal step template (2-4 judgements). Labels are what the player sees. */
   steps: { label: string; methodId: string }[];
+  // Phase 5
+  /** Conditions to try (試作) this recipe once it is known. All must hold. */
+  requirements?: RecipeRequirement[];
+  /** Short lore line for recipes learned from people or books. */
+  lore?: string;
+  /** Player-made recipes (派生). Built-in data never sets these. */
+  custom?: boolean;
+  /** Lineage: one parent today; several for future fusion / other players' derivations. */
+  parentRecipeIds?: string[];
+  description?: string;
+  origin?: string;
+  variant?: string;
+  createdDay?: number;
 }
+
+export type RecipeRequirement =
+  | { kind: "level"; min: number }
+  | { kind: "stat"; stat: "tech" | "knowledge" | "luck" | "magic" | "strength"; min: number }
+  | { kind: "skill"; skill: string; min: number }
+  | { kind: "school"; schoolId: string } // the school must be learned
+  | { kind: "schoolMastery"; schoolId: string; min: number }
+  | { kind: "ingredientExp"; itemId: string; min: number } // times cooked with it
+  | { kind: "methodExp"; methodId: string; min: number }; // times the method was used
 
 export const RECIPES: RecipeDef[] = [
   {
@@ -125,9 +147,61 @@ export const RECIPES: RecipeDef[] = [
     salesTags: ["meat", "luxury"],
     steps: [{ label: "火入れ", methodId: "saute" }, { label: "照り", methodId: "reduce" }],
   },
+  // Phase 5: recipes learned in play (NPC / book / battle). Not known at start.
+  {
+    id: "hanna-pickled-cabbage",
+    name: "女将の林檎キャベツ酢漬け",
+    schoolId: "village",
+    ingredients: [{ itemId: "cabbage", amount: 0.5 }, { itemId: "apple", amount: 0.3 }],
+    seasonings: [{ itemId: "vinegar", amount: 0.2 }, { itemId: "salt", amount: 0.1 }],
+    basePortions: 1,
+    difficulty: 2,
+    baseTimeDays: 0.3,
+    baseStamina: 4,
+    baseMagic: 0,
+    toolCompat: ["jar"],
+    salesTags: ["preserved", "light", "healthy"],
+    steps: [{ label: "下処理", methodId: "cut" }, { label: "漬け込み", methodId: "pickle" }],
+    requirements: [{ kind: "methodExp", methodId: "boil", min: 2 }, { kind: "stat", stat: "knowledge", min: 10 }],
+    lore: "宿屋の女将ハンナが母から受け継いだ、冬を越すための酢漬け。",
+  },
+  {
+    id: "archive-dried-boar",
+    name: "古記録の塩漬け干し肉",
+    schoolId: "north",
+    ingredients: [{ itemId: "boar", amount: 0.5 }, { itemId: "herb", amount: 0.1 }],
+    seasonings: [{ itemId: "salt", amount: 0.3 }],
+    basePortions: 1,
+    difficulty: 3,
+    baseTimeDays: 0.4,
+    baseStamina: 6,
+    baseMagic: 0,
+    toolCompat: ["jar"],
+    salesTags: ["preserved", "snack", "worker"],
+    steps: [{ label: "下処理", methodId: "cut" }, { label: "干し", methodId: "dry" }],
+    requirements: [{ kind: "level", min: 2 }, { kind: "ingredientExp", itemId: "boar", min: 1 }],
+    lore: "資料庫の『古い保存食の記録』に残る、猟師たちの干し肉。",
+  },
+  {
+    id: "gald-baked-apple",
+    name: "ガルド家の焼き林檎蜂蜜がけ",
+    schoolId: "village",
+    ingredients: [{ itemId: "apple", amount: 0.6 }, { itemId: "honey", amount: 0.2 }, { itemId: "butter", amount: 0.1 }],
+    seasonings: [],
+    basePortions: 1,
+    difficulty: 1,
+    baseTimeDays: 0.03,
+    baseStamina: 3,
+    baseMagic: 0,
+    toolCompat: ["stone"],
+    salesTags: ["light", "family", "snack"],
+    steps: [{ label: "下処理", methodId: "cut" }, { label: "焼き", methodId: "grill" }],
+    requirements: [{ kind: "school", schoolId: "village" }, { kind: "schoolMastery", schoolId: "village", min: 3 }],
+    lore: "勝負に負けたガルドが「お前なら化けさせられる」と託した家の味。",
+  },
 ];
 
 export const RECIPE_MAP: Record<string, RecipeDef> = Object.fromEntries(RECIPES.map((r) => [r.id, r]));
 
-/** Recipes known at game start: the basics of the starting school. */
-export const STARTING_RECIPES = RECIPES.filter((r) => r.schoolId === "village").map((r) => r.id);
+/** Recipes known (and mastered) at game start: the starting school's basics — those with no requirements. */
+export const STARTING_RECIPES = RECIPES.filter((r) => r.schoolId === "village" && !r.requirements?.length).map((r) => r.id);

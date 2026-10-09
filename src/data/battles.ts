@@ -82,7 +82,7 @@ export const BATTLES: BattleDef[] = [
     conditions: {
       theme: { label: "村の家庭の味", axes: { deliciousness: 1, culture: 0.6, costPerformance: 0.4 }, tags: ["deli", "staple", "family", "soup"] },
     },
-    rewards: [{ kind: "xp", amount: 20 }, { kind: "money", amount: 20 }],
+    rewards: [{ kind: "xp", amount: 20 }, { kind: "money", amount: 20 }, { kind: "recipe", id: "gald-baked-apple" }],
     specialRules: [],
     requires: [],
   },

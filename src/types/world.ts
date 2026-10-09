@@ -16,6 +16,8 @@ export interface ChefRecords {
   schoolMastery: Record<string, number>;
   techniqueCounts: Record<string, number>; // method id → uses
   genreCounts: Record<string, number>; // ingredient category → dishes
+  /** Ingredient id → dishes cooked with it (Phase 5 requirements). */
+  ingredientCounts?: Record<string, number>;
   achievements: string[];
   dishesCooked: number;
 }

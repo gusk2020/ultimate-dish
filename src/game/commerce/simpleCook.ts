@@ -1,6 +1,8 @@
 import { itemInfo } from "../../data/items";
 import { METHOD_MAP } from "../../data/methods";
-import { RECIPE_MAP, type RecipeDef } from "../../data/recipes";
+import type { RecipeDef } from "../../data/recipes";
+import type { LearningEvent } from "../../types/learning";
+import { canCook, getRecipe, masteryEffects, recordCook } from "../learning/recipeBook";
 import { RECOVERIES } from "../../data/phase2";
 import type { Dish } from "../../types";
 import type { DishStock, FinishInput, FinishReview, InventoryStack, ProcessResult, ProcessStep, ToolState } from "../../types/world";
@@ -59,7 +61,9 @@ export interface CookPlan {
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
 export function planCook(w: World, recipeId: string, portions: number, toolId: string | null): CookPlan {
-  const recipe = RECIPE_MAP[recipeId];
+  const recipe = getRecipe(w, recipeId)!;
+  // レシピ熟練度: small, bounded help with success, time and stamina.
+  const mastery = masteryEffects(w.recipeBook[recipeId]?.mastery ?? 0);
   const chef = w.chef;
   const n = Math.max(1, Math.floor(portions));
   const lines: PlanLine[] = [...recipe.ingredients, ...recipe.seasonings].map((l) => {
@@ -72,13 +76,13 @@ export function planCook(w: World, recipeId: string, portions: number, toolId: s
 
   const pen = staminaPenalty(chef);
   const toolTime = toolId === "stone" ? 0.7 : toolId === "jar" ? 0.5 : 1;
-  const timeDays = recipe.baseTimeDays * batchScale(n, recipe.difficulty, "time") * pen.timeMult * (1 - 0.3 * eff(chef.stats.tech)) * toolTime;
-  const stamina = Math.round(recipe.baseStamina * batchScale(n, recipe.difficulty, "stamina") * (1 - 0.2 * eff(chef.stats.strength)));
+  const timeDays = recipe.baseTimeDays * batchScale(n, recipe.difficulty, "time") * pen.timeMult * (1 - 0.3 * eff(chef.stats.tech)) * toolTime * mastery.timeMult;
+  const stamina = Math.round(recipe.baseStamina * batchScale(n, recipe.difficulty, "stamina") * (1 - 0.2 * eff(chef.stats.strength)) * mastery.staminaMult);
   const mp = Math.ceil((recipe.baseMagic + (toolId ? TOOL_MP[toolId] ?? 0 : 0)) * batchScale(n, recipe.difficulty, "magic"));
   // Big batches of hard dishes are harder to keep consistent, and working past the end of
   // your stamina (overdraw) makes it worse still — possible, never blocked, rarely wise.
   const overdraw = Math.max(0, stamina - chef.stamina) / maxStamina(chef);
-  const chanceModifier = pen.chance - 0.012 * recipe.difficulty * Math.log2(n) - Math.min(0.4, 0.3 * overdraw);
+  const chanceModifier = pen.chance - 0.012 * recipe.difficulty * Math.log2(n) - Math.min(0.4, 0.3 * overdraw) + mastery.chance;
 
   let maxPortionsByStamina = 0;
   for (let k = 1; k <= 99; k++) {
@@ -87,6 +91,7 @@ export function planCook(w: World, recipeId: string, portions: number, toolId: s
   }
 
   const problems: string[] = [];
+  if (!canCook(w, recipeId)) problems.push("まだ試作の条件を満たしていない");
   if (lines.some((l) => l.short > 0)) problems.push("食材が足りない");
   if (mp > chef.mp) problems.push(`MPが足りない（必要${mp}）`);
   const tool = toolId ? w.tools.find((t) => t.toolId === toolId) : null;
@@ -251,8 +256,8 @@ export function finishCook(
   s: CookSession,
   finish: FinishInput,
   review: FinishReview,
-): { world: World; dish: DishCore; stock: DishStock; gains: CookingGains } {
-  const recipe = RECIPE_MAP[s.recipeId];
+): { world: World; dish: DishCore; stock: DishStock; gains: CookingGains; learning: LearningEvent } {
+  const recipe = getRecipe(w, s.recipeId)!;
   const school = findSchool(w.chef.activeSchoolId, w.customSchools);
   const core = buildProcessDish({
     steps: s.steps, result: s.result, school, finish, review, cookingSeed: s.seed,
@@ -277,7 +282,9 @@ export function finishCook(
     listed: false,
     discounted: false,
   };
-  return { world: { ...w, chef, dishStock: [...w.dishStock, stock] }, dish, stock, gains };
+  // Phase 5: trial → mastered, mastery, cooking history and derivation ideas.
+  const learned = recordCook({ ...w, chef, dishStock: [...w.dishStock, stock] }, s, dish, finish);
+  return { world: learned.world, dish, stock, gains, learning: learned.event };
 }
 
 /** 流派 → 販売タグ: the active school colours how the dish is sold. */
