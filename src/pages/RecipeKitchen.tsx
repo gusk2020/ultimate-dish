@@ -24,6 +24,13 @@ import { FinishForm } from "../components/FinishForm";
 import { TastingView } from "../components/TastingView";
 import { GRADE_LABEL, GRADE_STYLE } from "./LineKitchen";
 import { IdeaAdopt, LearningResult, RecipeBookList, RecipeInfo } from "../components/RecipeBook";
+import { CoopResultView, ShareMealPanel } from "../components/SocialParts";
+import type { CoopResult } from "../game/social/coop";
+import { canCookAsMain } from "../game/social/coop";
+import { hasCompanion, line } from "../game/social/companion";
+import { availableHelpers, partyMembers } from "../game/social/allies";
+import { PLAYER } from "../game/social/relations";
+import { RECIPE_MAP } from "../data/recipes";
 
 const PORTIONS = [1, 2, 5, 10];
 
@@ -37,7 +44,10 @@ export function RecipeKitchen() {
   const [session, setSession] = useState<CookSession | null>(null);
   const [phase, setPhase] = useState<"plan" | "cooked" | "finish">("plan");
   const [finish, setFinish] = useState<FinishInput>(EMPTY_FINISH);
-  const [done, setDone] = useState<{ dish: Dish; stock: DishStock; gains: CookingGains; learning: LearningEvent; name: string } | null>(null);
+  const [done, setDone] = useState<{ dish: Dish; stock: DishStock; gains: CookingGains; learning: LearningEvent; name: string; coop: CoopResult | null; mainId: string } | null>(null);
+  const [mainId, setMainId] = useState(PLAYER);
+  const [helperId, setHelperId] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
   const [ideaId, setIdeaId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [tasting, setTasting] = useState(false);
@@ -45,6 +55,7 @@ export function RecipeKitchen() {
   const setWorld = (world: typeof w) => dispatch({ type: "setWorld", world });
   const reset = () => {
     setRecipeId(null); setSession(null); setPhase("plan"); setFinish(EMPTY_FINISH); setDone(null); setMsg(""); setToolId(null); setTasting(false); setIdeaId(null);
+    setMainId(PLAYER); setHelperId(null); setSharing(false);
   };
 
   // ---------- Done ----------
@@ -55,7 +66,10 @@ export function RecipeKitchen() {
       <div className="space-y-3">
         <div className="text-center text-sm font-semibold text-emerald-700">✨ {done.stock.portions}食 完成！図鑑に登録しました</div>
         <div className="card"><DishDetail dish={state.dishes.find((d) => d.id === done.dish.id) ?? done.dish} showMeta={false} /></div>
-        <LearningResult name={done.name} event={done.learning} onIdea={() => { const id = done.learning.newIdeas[0]?.id; reset(); if (id) setIdeaId(id); }} />
+        {done.coop && <CoopResultView coop={done.coop} />}
+        {done.mainId === PLAYER && (
+          <LearningResult name={done.name} event={done.learning} onIdea={() => { const id = done.learning.newIdeas[0]?.id; reset(); if (id) setIdeaId(id); }} />
+        )}
         <div className="card text-sm">
           <div>経験値 +{g.xp}{g.levelUps.map((l) => `　🎉 Lv${l.level}！（${Object.entries(l.gains).map(([k, v]) => `${STAT_LABEL[k as keyof typeof STAT_LABEL]}+${v}`).join(" ")}）`).join("")}</div>
           <div className="text-xs text-stone-600">熟練：{Object.entries(g.skillXp).map(([k, v]) => `${SKILL_MAP[k as keyof typeof SKILL_MAP]?.name ?? k}+${v}`).join("、") || "なし"}</div>
@@ -64,6 +78,9 @@ export function RecipeKitchen() {
         {msg && <p className="text-xs text-red-700">{msg}</p>}
         {tasting && (
           <TastingView dish={state.dishes.find((d) => d.id === done.dish.id) ?? done.dish} stockId={done.stock.id} onClose={() => setTasting(false)} />
+        )}
+        {sharing && stock && (
+          <ShareMealPanel initialEaters={hasCompanion(w) ? [w.social.companion!.id] : []} stockId={stock.id} onClose={() => setSharing(false)} />
         )}
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -80,6 +97,11 @@ export function RecipeKitchen() {
             🍴 自分で食べる
           </button>
           <button className="btn-secondary" onClick={() => dispatch({ type: "navigate", screen: "quests" })}>⚔️ 依頼・勝負へ</button>
+          {(hasCompanion(w) || Object.keys(w.social.relations).length > 0) && (
+            <button className="btn-secondary col-span-2" disabled={!stock || sharing} onClick={() => setSharing(true)}>
+              {hasCompanion(w) ? `${w.social.companion!.emoji} ${w.social.companion!.name}に食べてもらう` : "🍽 誰かにふるまう"}
+            </button>
+          )}
           <button className="btn-secondary col-span-2" onClick={reset}>次の料理を作る</button>
         </div>
       </div>
@@ -94,17 +116,36 @@ export function RecipeKitchen() {
   // ---------- Recipe book ----------
   const recipe = recipeId ? getRecipe(w, recipeId) : undefined;
   if (!recipeId || !recipe) {
+    const signatures = partyMembers(w).flatMap((c) => c.signatureRecipeIds.filter((id) => canCookAsMain(w, c.id, id)).map((id) => ({ c, id })));
     return (
-      <RecipeBookList
-        schoolName={findSchool(w.chef.activeSchoolId, w.customSchools).name}
-        onPick={(id) => { setRecipeId(id); setToolId(null); }}
-        onIdea={setIdeaId}
-      />
+      <div className="space-y-2">
+        {signatures.length > 0 && (
+          <div className="card space-y-1">
+            <div className="text-xs font-semibold text-stone-600">仲間が主担当で作れる料理</div>
+            {signatures.map(({ c, id }) => (
+              <button key={`${c.id}-${id}`} className="flex w-full items-center justify-between rounded-lg border border-stone-200 p-2 text-left text-sm" onClick={() => { setRecipeId(id); setToolId(null); setMainId(c.id); }}>
+                <span>{c.emoji}{c.name}の「{RECIPE_MAP[id]?.name ?? id}」</span>
+                <span className="text-xs text-stone-500">主担当：{c.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <RecipeBookList
+          schoolName={findSchool(w.chef.activeSchoolId, w.customSchools).name}
+          onPick={(id) => { setRecipeId(id); setToolId(null); setMainId(PLAYER); }}
+          onIdea={setIdeaId}
+        />
+      </div>
     );
   }
 
-  const plan = planCook(w, recipeId, portions, toolId);
-  const trial = recipeStatus(w, recipeId) !== "mastered";
+  const helpers = availableHelpers(w).filter((c) => c.id !== mainId);
+  const helper = helperId && helpers.some((c) => c.id === helperId) ? helperId : null;
+  const mains = [PLAYER, ...partyMembers(w).filter((c) => canCookAsMain(w, c.id, recipeId)).map((c) => c.id)];
+  const team = { mainId, assistantIds: helper ? [helper] : [] };
+  const plan = planCook(w, recipeId, portions, toolId, team);
+  const trial = mainId === PLAYER && recipeStatus(w, recipeId) !== "mastered";
+  const teamChars = [mainId, ...plan.team.assistantIds].filter((id) => id !== PLAYER).map((id) => helpers.concat(partyMembers(w)).find((c) => c.id === id)!).filter(Boolean);
 
   // ---------- Cooked: step results, recovery ----------
   if (session && phase !== "plan") {
@@ -132,7 +173,7 @@ export function RecipeKitchen() {
                 const dish: Dish = { ...out.dish, description, image };
                 dispatch({ type: "addDish", dish });
                 setWorld(out.world);
-                setDone({ dish, stock: out.stock, gains: out.gains, learning: out.learning, name: recipe.name });
+                setDone({ dish, stock: out.stock, gains: out.gains, learning: out.learning, name: recipe.name, coop: out.coop, mainId: session.team.mainId });
                 window.scrollTo({ top: 0 });
               }}
             >
@@ -146,6 +187,9 @@ export function RecipeKitchen() {
       <div className="space-y-3">
         <div className="card">
           <h2 className="section-title">{recipe.name}　{session.portions}食</h2>
+          {session.team.assistantIds.length > 0 && (
+            <div className="mb-1 text-xs text-stone-600">🤝 {[session.team.mainId, ...session.team.assistantIds].map((id) => (id === PLAYER ? "あなた" : partyMembers(w).concat(availableHelpers(w)).find((c) => c.id === id)?.name ?? id)).join("＋")}（主担当が先）</div>
+          )}
           <ul className="space-y-1.5">
             {judged.map(({ label, o }, i) => (
               <li key={i} className="flex flex-wrap items-center gap-2 text-sm">
@@ -187,7 +231,7 @@ export function RecipeKitchen() {
       <button className="text-sm text-stone-500 underline" onClick={() => setRecipeId(null)}>← レシピ一覧</button>
       <div className="card space-y-2">
         <h2 className="section-title mb-0">{trial && <span className="mr-1 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">試作</span>}{recipe.name}</h2>
-        <RecipeInfo w={w} id={recipeId} />
+        {mainId === PLAYER ? <RecipeInfo w={w} id={recipeId} /> : <div className="text-xs text-violet-800">{teamChars[0]?.emoji}{teamChars[0]?.name}の得意料理（主担当：{teamChars[0]?.name}・あなたは補助）</div>}
         <div className="text-xs text-stone-500">何食分作る？</div>
         <div className="grid grid-cols-5 gap-1.5">
           {PORTIONS.map((n) => (
@@ -213,6 +257,43 @@ export function RecipeKitchen() {
           })}
         </div>
       </div>
+
+      {(helpers.length > 0 || mains.length > 1) && (
+        <div className="card space-y-1.5">
+          <div className="text-sm font-semibold">🤝 一緒に作る</div>
+          {mains.length > 1 && (
+            <>
+              <div className="text-xs text-stone-500">主担当</div>
+              <div className="flex flex-wrap gap-1.5">
+                {mains.map((id) => {
+                  const c = partyMembers(w).find((x) => x.id === id);
+                  return (
+                    <button key={id} className={`chip min-h-10 px-3 text-sm ${mainId === id ? "chip-on" : ""}`} onClick={() => { setMainId(id); if (helperId === id) setHelperId(null); }}>
+                      {c ? `${c.emoji}${c.name}` : "🧑‍🍳あなた"}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          <div className="text-xs text-stone-500">補助役</div>
+          <div className="flex flex-wrap gap-1.5">
+            <button className={`chip min-h-10 px-3 text-sm ${helper === null ? "chip-on" : ""}`} onClick={() => setHelperId(null)}>{mainId === PLAYER ? "ひとりで" : "あなただけ"}</button>
+            {helpers.map((c) => (
+              <button key={c.id} className={`chip min-h-10 px-3 text-sm ${helper === c.id ? "chip-on" : ""}`} onClick={() => setHelperId(c.id)}>
+                {c.emoji}{c.name}{c.kind === "ally" && !w.social.party.includes(c.id) ? "（手伝い）" : ""}
+              </button>
+            ))}
+          </div>
+          {teamChars[0]?.dialogue.beforeCook && <p className="rounded-lg bg-stone-100 p-1.5 text-xs">{teamChars[0].emoji}「{line(teamChars[0], "beforeCook")}」</p>}
+          {plan.coop.notes.length > 0 && (
+            <ul className="text-[11px] text-stone-600">
+              {plan.coop.notes.map((n) => <li key={n}>・{n}</li>)}
+              <li className="font-semibold text-stone-700">成功率への補正 合計 {plan.coop.chance >= 0 ? "+" : "−"}{Math.abs(plan.coop.chance * 100).toFixed(1)}%</li>
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="card">
         <h2 className="section-title">必要な素材</h2>

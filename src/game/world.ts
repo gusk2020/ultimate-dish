@@ -6,6 +6,7 @@ import type { Chef, Contract, DishStock, InventoryStack, ProcessStep, ProcessRes
 import { initialInventory } from "../data/items";
 import type { BattleRecord, EaterProfile, TastingRecord } from "../types/eating";
 import type { DerivationIdea, RecipeProgress } from "../types/learning";
+import type { SocialState } from "../types/social";
 import type { RecipeDef } from "../data/recipes";
 import { newProgress } from "./learning/recipeBook";
 import { initialTools } from "../data/phase2";
@@ -50,6 +51,9 @@ export interface World {
   /** Ideas adopted or turned down, so they are not offered again. */
   ideasClosed: string[];
   learning: { talkedTo: string[]; booksRead: string[] };
+  // Phase 6
+  /** Companion choice, party and every pair's relationship (player, companion, allies). */
+  social: SocialState;
 }
 
 export function createWorld(): World {
@@ -75,6 +79,7 @@ export function createWorld(): World {
     derivationIdeas: [],
     ideasClosed: [],
     learning: { talkedTo: [], booksRead: [] },
+    social: { persona: null, companionChoice: "pending", companion: null, party: [], relations: {} },
   };
 }
 

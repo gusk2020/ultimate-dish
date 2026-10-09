@@ -6,12 +6,14 @@ import { Quests } from "./pages/Quests";
 import { Dex } from "./pages/Dex";
 import { ChefPage } from "./pages/ChefPage";
 import { SalesPage } from "./pages/SalesPage";
+import { PeoplePage } from "./pages/PeoplePage";
 import { maxMP, maxStamina } from "./game/chef/stats";
 import { formatDays } from "./game/process/simulate";
 
 const TABS: { id: ScreenId; label: string; icon: string }[] = [
   { id: "village", label: "村", icon: "🗺️" },
   { id: "chef", label: "料理人", icon: "🧑‍🍳" },
+  { id: "people", label: "仲間", icon: "🤝" },
   { id: "kitchen", label: "厨房", icon: "🍳" },
   { id: "sales", label: "販売", icon: "🏪" },
   { id: "quests", label: "勝負", icon: "⚔️" },
@@ -40,13 +42,14 @@ export default function App() {
       <main>
         <div hidden={state.screen !== "village"}><VillageMap /></div>
         <div hidden={state.screen !== "chef"}><ChefPage /></div>
+        <div hidden={state.screen !== "people"}><PeoplePage /></div>
         <div hidden={state.screen !== "kitchen"}><Kitchen /></div>
         <div hidden={state.screen !== "sales"}><SalesPage /></div>
         <div hidden={state.screen !== "quests"}><Quests /></div>
         <div hidden={state.screen !== "dex"}><Dex /></div>
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-10 mx-auto grid h-16 max-w-md grid-cols-6 border-t border-stone-200 bg-white">
+      <nav className="fixed inset-x-0 bottom-0 z-10 mx-auto grid h-16 max-w-md grid-cols-7 border-t border-stone-200 bg-white">
         {TABS.map((t) => (
           <button
             key={t.id}
