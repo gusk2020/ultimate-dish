@@ -7,6 +7,9 @@ import { initialInventory } from "../data/items";
 import type { BattleRecord, EaterProfile, TastingRecord } from "../types/eating";
 import type { DerivationIdea, RecipeProgress } from "../types/learning";
 import type { SocialState } from "../types/social";
+import type { TravelState } from "../types/travel";
+import { HOME_LOCATION_ID } from "../data/regions";
+import { localPrice, locationOf } from "./travel/market";
 import type { RecipeDef } from "../data/recipes";
 import { newProgress } from "./learning/recipeBook";
 import { initialTools } from "../data/phase2";
@@ -54,6 +57,9 @@ export interface World {
   // Phase 6
   /** Companion choice, party and every pair's relationship (player, companion, allies). */
   social: SocialState;
+  // Phase 7
+  /** Where the player is, where they have been and every journey so far. */
+  travel: TravelState;
 }
 
 export function createWorld(): World {
@@ -80,6 +86,7 @@ export function createWorld(): World {
     ideasClosed: [],
     learning: { talkedTo: [], booksRead: [] },
     social: { persona: null, companionChoice: "pending", companion: null, party: [], relations: {} },
+    travel: { currentLocationId: HOME_LOCATION_ID, visitedLocationIds: [HOME_LOCATION_ID], travelLog: [], regionKnowledge: {} },
   };
 }
 
@@ -120,10 +127,14 @@ export function buy(w: World, itemId: string, quantity: number, storageId: strin
   const info = itemInfo(itemId);
   const storage = STORAGE_MAP[storageId];
   if (!info || !storage) return "不明な品物";
-  const cost = info.price * quantity;
+  // Phase 7: the local market decides the price (the village keeps the old fixed prices).
+  const price = localPrice(w, itemId);
+  if (price === null) return `${info.name}はこの土地では売っていない`;
+  const cost = Math.round(price * quantity * 100) / 100;
   if (w.chef.money < cost) return "お金が足りない";
   if (storageLoad(w.inventory, storageId) + quantity > storage.capacity) return `${storage.name}がいっぱい`;
-  const stack = newStack(itemId, quantity, storageId, "市場", w.day, w.stackCounter + 1000);
+  const here = w.travel?.currentLocationId ?? HOME_LOCATION_ID;
+  const stack = { ...newStack(itemId, quantity, storageId, here === HOME_LOCATION_ID ? "市場" : `${locationOf(w).shortName}の市場`, w.day, w.stackCounter + 1000), price };
   return {
     ...w,
     stackCounter: w.stackCounter + 1,

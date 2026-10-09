@@ -20,6 +20,7 @@ import type { CookTeam } from "../../types/social";
 import { characterChef, getCharacter } from "../social/companion";
 import { afterTeamCook, canCookAsMain, SOLO, teamEffect, type CoopEffect, type CoopResult } from "../social/coop";
 import { PLAYER } from "../social/relations";
+import { localPrice } from "../travel/market";
 
 // レシピ調理: the everyday kitchen. The player picks a recipe and a portion count; the
 // Phase 2 process engine judges a short internal step template behind the scenes.
@@ -45,6 +46,8 @@ export interface PlanLine {
   have: number;
   short: number;
   unitPrice: number;
+  /** Phase 7: sold at the local market (false = has to come from elsewhere). */
+  sold: boolean;
 }
 
 export interface CookPlan {
@@ -89,9 +92,11 @@ export function planCook(w: World, recipeId: string, portions: number, toolId: s
   const lines: PlanLine[] = [...recipe.ingredients, ...recipe.seasonings].map((l) => {
     const need = round2(l.amount * n);
     const have = availableAmount(w.inventory, l.itemId);
-    return { itemId: l.itemId, need, have, short: round2(Math.max(0, need - have)), unitPrice: itemInfo(l.itemId)?.price ?? 0 };
+    // Phase 7: priced at the local market; not sold here → priced at base for the cost estimate only.
+    const local = localPrice(w, l.itemId);
+    return { itemId: l.itemId, need, have, short: round2(Math.max(0, need - have)), unitPrice: local ?? itemInfo(l.itemId)?.price ?? 0, sold: local !== null };
   });
-  const shortCost = Math.ceil(lines.reduce((a, l) => a + Math.ceil(l.short) * l.unitPrice, 0));
+  const shortCost = Math.ceil(lines.reduce((a, l) => a + (l.sold ? Math.ceil(l.short) * l.unitPrice : 0), 0));
   const unitCost = round2(lines.reduce((a, l) => a + l.need * l.unitPrice, 0) / n);
 
   const pen = staminaPenalty(chef);
@@ -104,9 +109,11 @@ export function planCook(w: World, recipeId: string, portions: number, toolId: s
   const overdraw = Math.max(0, stamina - chef.stamina) / maxStamina(chef);
   const chanceModifier = pen.chance - 0.012 * recipe.difficulty * Math.log2(n) - Math.min(0.4, 0.3 * overdraw) + mastery.chance + coop.chance;
 
+  // Same formula as `stamina` above (mastery and helpers included), so the hint matches the cost.
   let maxPortionsByStamina = 0;
   for (let k = 1; k <= 99; k++) {
-    if (recipe.baseStamina * batchScale(k, recipe.difficulty, "stamina") * (1 - 0.2 * eff(chef.stats.strength)) > chef.stamina) break;
+    const cost = Math.round(recipe.baseStamina * batchScale(k, recipe.difficulty, "stamina") * (1 - 0.2 * eff(chef.stats.strength)) * mastery.staminaMult * coop.staminaMult);
+    if (cost > chef.stamina) break;
     maxPortionsByStamina = k;
   }
 
@@ -114,6 +121,8 @@ export function planCook(w: World, recipeId: string, portions: number, toolId: s
   if (byPlayer && !canCook(w, recipeId)) problems.push("まだ試作の条件を満たしていない");
   if (!byPlayer && !canCookAsMain(w, team.mainId, recipeId)) problems.push("この料理は主担当にできない");
   if (lines.some((l) => l.short > 0)) problems.push("食材が足りない");
+  const notSold = lines.filter((l) => l.short > 0 && !l.sold);
+  if (notSold.length) problems.push(`${notSold.map((l) => itemInfo(l.itemId)?.name ?? l.itemId).join("・")}はこの土地の市場にない`);
   if (mp > chef.mp) problems.push(`MPが足りない（必要${mp}）`);
   const tool = toolId ? w.tools.find((t) => t.toolId === toolId) : null;
   if (toolId && (!tool || tool.durability <= 0)) problems.push("魔導具の耐久切れ");

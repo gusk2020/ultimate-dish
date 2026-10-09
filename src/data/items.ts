@@ -22,8 +22,11 @@ const SHELF: Record<string, number> = {
   wheat: 180, beans: 180, onion: 30, cabbage: 10, turnip: 14, garlic: 60, mushroom: 4,
   apple: 30, herb: 4, honey: 365, nuts: 90, milk: 3, butter: 14, cheese: 60,
   salt: 9999, vinegar: 365,
+  // Phase 7 regional ingredients
+  riverprawn: 2, leek: 7, noodles: 365, seafish: 2, shellfish: 1.5, seaweed: 180, seasalt: 9999, lemon: 30,
+  cinnamon: 365, goatmilk: 3, hardcheese: 180, wildgreens: 4, ibex: 3,
 };
-const LIGHT = new Set(["herb", "garlic"]);
+const LIGHT = new Set(["herb", "garlic", "cinnamon"]);
 const HALF = new Set(["honey", "butter", "salt", "vinegar"]);
 
 export function itemInfo(id: string): ItemInfo | null {

@@ -54,6 +54,7 @@ export interface RelationDelta {
   conflicts?: number;
   sharedMeals?: number;
   cookedTogether?: number;
+  traveledTogether?: number;
 }
 
 export function adjustRelation(w: World, a: string, b: string, d: RelationDelta, memory?: FoodMemory): World {
@@ -67,6 +68,7 @@ export function adjustRelation(w: World, a: string, b: string, d: RelationDelta,
     conflicts: clamp(r.conflicts + (d.conflicts ?? 0)),
     sharedMeals: r.sharedMeals + (d.sharedMeals ?? 0),
     cookedTogether: r.cookedTogether + (d.cookedTogether ?? 0),
+    traveledTogether: r.traveledTogether + (d.traveledTogether ?? 0),
     memories: memory ? keepMemories([...r.memories, memory]) : r.memories,
   };
   return { ...base, social: { ...base.social, relations: { ...base.social.relations, [r.key]: next } } };
