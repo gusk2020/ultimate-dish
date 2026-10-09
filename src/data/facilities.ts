@@ -11,6 +11,9 @@ export interface Facility {
   screen: ScreenId | null;
   /** Ingredient source this place supplies (future: gathering / hunting / trading). */
   source?: SourceId;
+  /** Phase 5: someone here teaches a recipe / a record here describes one. */
+  teacherId?: string;
+  bookId?: string;
   description: string;
 }
 
@@ -20,5 +23,7 @@ export const FACILITIES: Facility[] = [
   { id: "archive", name: "図鑑／記録所", emoji: "📖", col: 0, row: 2, screen: "dex", description: "作った料理を見る" },
   { id: "farm", name: "農地", emoji: "🌾", col: 0, row: 4, screen: null, source: "farm", description: "畑と家畜（採集は今後実装）" },
   { id: "hunt", name: "猟場", emoji: "🌲", col: 3, row: 0, screen: null, source: "hunt", description: "森と川（狩猟は今後実装）" },
+  { id: "inn", name: "宿屋", emoji: "🏨", col: 1, row: 4, screen: null, teacherId: "hanna", description: "宿屋の女将ハンナが切り盛りしている" },
+  { id: "library", name: "村の書庫", emoji: "📚", col: 0, row: 0, screen: null, bookId: "old-preserves", description: "古い記録が眠る小さな書庫" },
   { id: "market", name: "市場／商店", emoji: "🏪", col: 3, row: 4, screen: "chef", source: "market", description: "食材を買う（料理人→在庫）" },
 ];

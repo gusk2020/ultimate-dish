@@ -1,7 +1,53 @@
 import { useState } from "react";
 import { FACILITIES, type Facility } from "../data/facilities";
 import { INGREDIENTS } from "../data/ingredients";
+import { BOOKS, TEACHERS } from "../data/learningSources";
+import { getRecipe, learnFromTeacher, readBook, recipeStatus } from "../game/learning/recipeBook";
 import { useGame } from "../state/GameContext";
+
+/** 村の人・書庫: where a recipe can be learned (known, not yet mastered). */
+function LearnSpot({ f, onKitchen }: { f: Facility; onKitchen: () => void }) {
+  const { state, dispatch } = useGame();
+  const w = state.world;
+  const teacher = TEACHERS.find((t) => t.id === f.teacherId);
+  const book = BOOKS.find((b) => b.id === f.bookId);
+  const recipeId = teacher?.recipeId ?? book?.recipeId;
+  if (!recipeId) return null;
+  const recipe = getRecipe(w, recipeId);
+  const status = recipeStatus(w, recipeId);
+  const known = status !== "unknown";
+  const learn = () => {
+    const r = teacher ? learnFromTeacher(w, teacher.id, recipeId) : readBook(w, book!.id, recipeId);
+    dispatch({ type: "setWorld", world: r.world });
+  };
+  return (
+    <div className="mb-3 space-y-2 text-sm">
+      {teacher && (
+        <>
+          <div className="font-semibold">{teacher.emoji} {teacher.name}</div>
+          <p className="rounded-lg bg-amber-50 p-2">「{known ? teacher.afterLine : teacher.greeting}」</p>
+          {!known && <button className="btn-primary w-full" onClick={learn}>💬 話を聞く</button>}
+          {known && w.learning.talkedTo.includes(teacher.id) && <p className="rounded-lg bg-amber-50 p-2">「{teacher.teachLine}」</p>}
+        </>
+      )}
+      {book && (
+        <>
+          <div className="font-semibold">📜 {book.title}</div>
+          {known ? <p className="rounded-lg bg-stone-100 p-2 text-xs">{book.excerpt}</p> : <button className="btn-primary w-full" onClick={learn}>📖 記録を読む</button>}
+        </>
+      )}
+      {known && recipe && (
+        <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-2">
+          <div className="font-semibold">📕 レシピ「{recipe.name}」を知った</div>
+          <div className="text-xs text-stone-600">
+            {status === "mastered" ? "習得済み" : status === "trialAvailable" ? "条件を満たしている。厨房で試作できる" : "まだ条件を満たしていない。厨房のレシピ帳で条件を確認"}
+          </div>
+          <button className="btn-secondary mt-1 w-full" onClick={onKitchen}>🍳 厨房のレシピ帳へ</button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // 2D top-down village: a 4x6 grid with a dirt-road cross. Facilities are tap targets.
 export function VillageMap() {
@@ -46,13 +92,16 @@ export function VillageMap() {
 
       {info && (
         <div className="fixed inset-0 z-20 flex items-end bg-black/30" onClick={() => setInfo(null)}>
-          <div className="mx-auto w-full max-w-md rounded-t-2xl bg-white p-4 pb-8" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-auto w-full max-h-[85vh] max-w-md overflow-y-auto rounded-t-2xl bg-white p-4 pb-8" onClick={(e) => e.stopPropagation()}>
             <div className="mb-1 text-lg font-bold">
               {info.emoji} {info.name}
             </div>
             <p className="mb-2 text-sm text-stone-600">{info.description}</p>
+            {(info.teacherId || info.bookId) && (
+              <LearnSpot f={info} onKitchen={() => { setInfo(null); dispatch({ type: "navigate", screen: "kitchen" }); }} />
+            )}
             <div className="mb-3 flex flex-wrap gap-1.5 text-sm">
-              {INGREDIENTS.filter((i) => i.source === info.source).map((i) => (
+              {INGREDIENTS.filter((i) => info.source && i.source === info.source).map((i) => (
                 <span key={i.id} className="rounded-full bg-stone-100 px-2 py-1">
                   {i.emoji}
                   {i.name}

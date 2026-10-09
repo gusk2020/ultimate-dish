@@ -5,6 +5,9 @@ import type { Dish, Rank } from "../types";
 import type { Chef, Contract, DishStock, InventoryStack, ProcessStep, ProcessResult, School, SkillId, ToolState } from "../types/world";
 import { initialInventory } from "../data/items";
 import type { BattleRecord, EaterProfile, TastingRecord } from "../types/eating";
+import type { DerivationIdea, RecipeProgress } from "../types/learning";
+import type { RecipeDef } from "../data/recipes";
+import { newProgress } from "./learning/recipeBook";
 import { initialTools } from "../data/phase2";
 import { STARTING_RECIPES } from "../data/recipes";
 import { gainXp, type LevelUpLog } from "./chef/leveling";
@@ -38,6 +41,15 @@ export interface World {
   palate: EaterProfile | null;
   tastingLog: TastingRecord[];
   battleLog: BattleRecord[];
+  // Phase 5
+  /** Every recipe the player knows about (absent = unknown). `knownRecipes` lists the mastered ones. */
+  recipeBook: Record<string, RecipeProgress>;
+  /** Player-made derived recipes; looked up together with the built-ins via getRecipe(). */
+  customRecipes: RecipeDef[];
+  derivationIdeas: DerivationIdea[];
+  /** Ideas adopted or turned down, so they are not offered again. */
+  ideasClosed: string[];
+  learning: { talkedTo: string[]; booksRead: string[] };
 }
 
 export function createWorld(): World {
@@ -58,6 +70,11 @@ export function createWorld(): World {
     palate: null,
     tastingLog: [],
     battleLog: [],
+    recipeBook: Object.fromEntries(STARTING_RECIPES.map((id) => [id, newProgress(id, "mastered", "start", 1, 10)])),
+    customRecipes: [],
+    derivationIdeas: [],
+    ideasClosed: [],
+    learning: { talkedTo: [], booksRead: [] },
   };
 }
 
@@ -195,6 +212,9 @@ export function applyGrowth(
   };
   const before = new Set(learnedSkills(chef0));
   for (const [k, v] of Object.entries(skillXp) as [SkillId, number][]) records.skillXp[k] = (records.skillXp[k] ?? 0) + v;
+  const ingredientCounts = { ...(chef0.records.ingredientCounts ?? {}) };
+  for (const id of dish.recipe.ingredientIds) ingredientCounts[id] = (ingredientCounts[id] ?? 0) + 1;
+  records.ingredientCounts = ingredientCounts;
   const mainCat = INGREDIENT_MAP[dish.recipe.ingredientIds[0]]?.category ?? "other";
   records.genreCounts[mainCat] = (records.genreCounts[mainCat] ?? 0) + 1;
   if (result.outcomes.some((o) => o.grade === "miracle") && !records.achievements.includes("奇跡の一皿")) {

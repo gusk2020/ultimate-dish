@@ -64,7 +64,7 @@ function ResultView({ def, result, dish, onRematch, onBack }: {
       <div className="card text-xs">
         <div className="font-semibold">勝敗の理由</div>
         <ul className="list-inside list-disc">{result.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
-        <div className="mt-1">報酬：{result.rewards.map((r) => (r.kind === "xp" ? `経験値+${r.amount}` : r.kind === "money" ? `${r.amount}G` : r.kind)).join("、") || "なし"}</div>
+        <div className="mt-1">報酬：{result.rewards.map((r) => (r.kind === "xp" ? `経験値+${r.amount}` : r.kind === "money" ? `${r.amount}G` : r.kind === "recipe" ? `レシピ「${RECIPE_MAP[r.id ?? ""]?.name ?? r.id}」を知った（厨房のレシピ帳で条件を確認）` : r.kind)).join("、") || "なし"}</div>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <button className="btn-secondary" onClick={onBack}>勝負一覧へ</button>
