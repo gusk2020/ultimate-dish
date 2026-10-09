@@ -183,6 +183,8 @@ export interface Dish {
   guild: { favorites: number; reproductions: number };
   /** Present for dishes made in the line kitchen (Phase 2). */
   process?: import("./world").DishProcessInfo;
+  /** Set for dishes cooked from a recipe (Phase 3 レシピ調理). */
+  recipeId?: string;
 }
 
 export interface Eater {

@@ -14,7 +14,7 @@ const TABS: { id: ScreenId; label: string; icon: string }[] = [
   { id: "chef", label: "料理人", icon: "🧑‍🍳" },
   { id: "kitchen", label: "厨房", icon: "🍳" },
   { id: "sales", label: "販売", icon: "🏪" },
-  { id: "quests", label: "依頼", icon: "📜" },
+  { id: "quests", label: "勝負", icon: "⚔️" },
   { id: "dex", label: "図鑑", icon: "📖" },
 ];
 

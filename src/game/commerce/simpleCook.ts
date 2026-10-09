@@ -258,7 +258,7 @@ export function finishCook(
     steps: s.steps, result: s.result, school, finish, review, cookingSeed: s.seed,
     chefLevel: w.chef.level, parentDishId: null,
   });
-  const dish: DishCore = { ...core, name: recipe.name };
+  const dish: DishCore = { ...core, name: recipe.name, recipeId: recipe.id };
   const { chef, gains } = applyGrowth(w.chef, w.customSchools, s.steps, s.result, dish as Dish, Math.floor(Math.log2(s.portions)) * 3);
   stockCounter += 1;
   const stock: DishStock = {

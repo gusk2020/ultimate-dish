@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { BattlePage } from "./BattlePage";
 import type { Eater, Quest, QuestResult, TasteKey } from "../types";
 import { QUESTS } from "../data/quests";
 import { EATER_MAP } from "../data/eaters";
@@ -138,7 +139,7 @@ function QuestDetail({ quest }: { quest: Quest }) {
   );
 }
 
-export function Quests() {
+function QuestList() {
   const { state } = useGame();
   const firstOpen = QUESTS.find((q, i) => questStatus(q, i, state.clearedQuestIds) === "open");
   const [openId, setOpenId] = useState<string | null>(firstOpen?.id ?? QUESTS[0].id);
@@ -173,6 +174,23 @@ export function Quests() {
       {state.clearedQuestIds.length === QUESTS.length && (
         <p className="text-center text-sm text-emerald-700">全依頼達成！究極の料理への旅は続く…</p>
       )}
+    </div>
+  );
+}
+
+/** 勝負 tab: cooking battles (Phase 4) and the village quests (Phase 1). */
+export function Quests() {
+  const [tab, setTab] = useState<"battle" | "quest">("battle");
+  return (
+    <div>
+      <div className="mx-4 mt-4 grid grid-cols-2 gap-1 rounded-xl bg-stone-200 p-1">
+        {([["battle", "⚔️ 料理勝負"], ["quest", "📜 依頼"]] as const).map(([t, l]) => (
+          <button key={t} className={`min-h-10 rounded-lg text-sm ${tab === t ? "bg-white font-bold shadow" : "text-stone-600"}`} onClick={() => setTab(t)}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {tab === "battle" ? <div className="p-4"><BattlePage /></div> : <QuestList />}
     </div>
   );
 }

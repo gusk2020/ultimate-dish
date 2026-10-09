@@ -119,6 +119,10 @@ export function endDay(w: World, seed: number): { world: World; report: DailyRep
     fame: { ...world.fame, village: fameAfter },
     trends,
     ledger: { materialCost: 0, purchases: 0 },
+    // A night passes: the player wakes up hungry again.
+    palate: world.palate
+      ? { ...world.palate, condition: { ...world.palate.condition, hunger: Math.min(1, world.palate.condition.hunger + 0.4) } }
+      : world.palate,
   };
 
   const profit = Math.round(salesRevenue + contractIncome - w.ledger.materialCost - upkeep);
