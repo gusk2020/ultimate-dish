@@ -211,6 +211,8 @@ export interface DishStock {
   price: number; // set by the player; 0 = use recommended
   listed: boolean; // put out for 総菜販売 today
   discounted: boolean;
+  /** Phase 6: who made it (main cook first). Absent = the player alone. */
+  cookedBy?: string[];
 }
 
 export interface Contract {

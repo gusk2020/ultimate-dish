@@ -14,6 +14,12 @@ import { findSchool } from "../school/school";
 import type { DishCore } from "../cooking/buildDish";
 import { advanceTime, applyGrowth, buy, type CookingGains, type World } from "../world";
 import { createRng, seedFrom } from "../rng";
+import { gainXp } from "../chef/leveling";
+import type { Chef } from "../../types/world";
+import type { CookTeam } from "../../types/social";
+import { characterChef, getCharacter } from "../social/companion";
+import { afterTeamCook, canCookAsMain, SOLO, teamEffect, type CoopEffect, type CoopResult } from "../social/coop";
+import { PLAYER } from "../social/relations";
 
 // レシピ調理: the everyday kitchen. The player picks a recipe and a portion count; the
 // Phase 2 process engine judges a short internal step template behind the scenes.
@@ -56,15 +62,29 @@ export interface CookPlan {
   /** Rough "how many more portions today" from current stamina. */
   maxPortionsByStamina: number;
   problems: string[];
+  /** Phase 6: main cook + helpers, and what the helpers add. */
+  team: CookTeam;
+  coop: CoopEffect;
 }
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
-export function planCook(w: World, recipeId: string, portions: number, toolId: string | null): CookPlan {
+/** The chef whose hands the engine judges: the player, or a companion / ally cooking as main. */
+export function mainChefOf(w: World, team: CookTeam): Chef {
+  const c = team.mainId === PLAYER ? null : getCharacter(w, team.mainId);
+  return c ? characterChef(c) : w.chef;
+}
+
+export function planCook(w: World, recipeId: string, portions: number, toolId: string | null, team0: CookTeam = SOLO): CookPlan {
   const recipe = getRecipe(w, recipeId)!;
-  // レシピ熟練度: small, bounded help with success, time and stamina.
-  const mastery = masteryEffects(w.recipeBook[recipeId]?.mastery ?? 0);
+  // When someone else is the main cook, the player is always one of the helpers.
+  const team = team0.mainId !== PLAYER && !team0.assistantIds.includes(PLAYER) ? { ...team0, assistantIds: [PLAYER, ...team0.assistantIds] } : team0;
+  const byPlayer = team.mainId === PLAYER;
+  // レシピ熟練度: small, bounded help with success, time and stamina (the player's own recipes only).
+  const mastery = masteryEffects(byPlayer ? w.recipeBook[recipeId]?.mastery ?? 0 : 0);
+  const coop = teamEffect(w, team, recipe, toolId);
   const chef = w.chef;
+  const hands = mainChefOf(w, team);
   const n = Math.max(1, Math.floor(portions));
   const lines: PlanLine[] = [...recipe.ingredients, ...recipe.seasonings].map((l) => {
     const need = round2(l.amount * n);
@@ -76,13 +96,13 @@ export function planCook(w: World, recipeId: string, portions: number, toolId: s
 
   const pen = staminaPenalty(chef);
   const toolTime = toolId === "stone" ? 0.7 : toolId === "jar" ? 0.5 : 1;
-  const timeDays = recipe.baseTimeDays * batchScale(n, recipe.difficulty, "time") * pen.timeMult * (1 - 0.3 * eff(chef.stats.tech)) * toolTime * mastery.timeMult;
-  const stamina = Math.round(recipe.baseStamina * batchScale(n, recipe.difficulty, "stamina") * (1 - 0.2 * eff(chef.stats.strength)) * mastery.staminaMult);
+  const timeDays = recipe.baseTimeDays * batchScale(n, recipe.difficulty, "time") * pen.timeMult * (1 - 0.3 * eff(hands.stats.tech)) * toolTime * mastery.timeMult * coop.timeMult;
+  const stamina = Math.round(recipe.baseStamina * batchScale(n, recipe.difficulty, "stamina") * (1 - 0.2 * eff(chef.stats.strength)) * mastery.staminaMult * coop.staminaMult);
   const mp = Math.ceil((recipe.baseMagic + (toolId ? TOOL_MP[toolId] ?? 0 : 0)) * batchScale(n, recipe.difficulty, "magic"));
   // Big batches of hard dishes are harder to keep consistent, and working past the end of
   // your stamina (overdraw) makes it worse still — possible, never blocked, rarely wise.
   const overdraw = Math.max(0, stamina - chef.stamina) / maxStamina(chef);
-  const chanceModifier = pen.chance - 0.012 * recipe.difficulty * Math.log2(n) - Math.min(0.4, 0.3 * overdraw) + mastery.chance;
+  const chanceModifier = pen.chance - 0.012 * recipe.difficulty * Math.log2(n) - Math.min(0.4, 0.3 * overdraw) + mastery.chance + coop.chance;
 
   let maxPortionsByStamina = 0;
   for (let k = 1; k <= 99; k++) {
@@ -91,14 +111,15 @@ export function planCook(w: World, recipeId: string, portions: number, toolId: s
   }
 
   const problems: string[] = [];
-  if (!canCook(w, recipeId)) problems.push("まだ試作の条件を満たしていない");
+  if (byPlayer && !canCook(w, recipeId)) problems.push("まだ試作の条件を満たしていない");
+  if (!byPlayer && !canCookAsMain(w, team.mainId, recipeId)) problems.push("この料理は主担当にできない");
   if (lines.some((l) => l.short > 0)) problems.push("食材が足りない");
   if (mp > chef.mp) problems.push(`MPが足りない（必要${mp}）`);
   const tool = toolId ? w.tools.find((t) => t.toolId === toolId) : null;
   if (toolId && (!tool || tool.durability <= 0)) problems.push("魔導具の耐久切れ");
   return {
     recipe, portions: n, toolId, lines, shortCost, unitCost, timeDays: round2(timeDays * 1000) / 1000, stamina, mp,
-    chanceModifier, tired: pen.tired, maxPortionsByStamina, problems,
+    chanceModifier, tired: pen.tired, maxPortionsByStamina, problems, team, coop,
   };
 }
 
@@ -136,6 +157,7 @@ export interface CookSession {
   result: ProcessResult;
   unitCost: number;
   recoveries: number;
+  team: CookTeam;
 }
 
 const HEAT = (id: string) => METHOD_MAP[id]?.systems.includes("heat") ?? false;
@@ -171,12 +193,14 @@ interface JudgeInput {
   inventory: InventoryStack[];
   tools: ToolState[];
   lack: number; // 0..1 tiredness at the start
+  team: CookTeam;
 }
 
 function judge(w: World, j: JudgeInput): ProcessResult {
-  const school = findSchool(w.chef.activeSchoolId, w.customSchools);
+  const hands = mainChefOf(w, j.team);
+  const school = findSchool(hands.activeSchoolId, w.customSchools);
   const result = simulateProcess(j.steps, {
-    chef: w.chef, school, inventory: j.inventory, tools: j.tools, seed: j.seed, chanceModifier: j.chanceModifier,
+    chef: { ...hands, mp: Math.max(hands.mp, w.chef.mp) }, school, inventory: j.inventory, tools: j.tools, seed: j.seed, chanceModifier: j.chanceModifier,
   });
   // Low stamina: some plain failures become critical ones (seeded per step index).
   const lack = j.lack;
@@ -199,7 +223,7 @@ export function startCook(w: World, plan: CookPlan, seed: number): { world: Worl
   }
   const { steps, labels } = templateSteps(plan.recipe, plan.toolId);
   const lack = Math.max(0, -staminaPenalty(w.chef).chance / 0.18);
-  const result = judge(w, { steps, seed, chanceModifier: plan.chanceModifier, inventory: w.inventory, tools: w.tools, lack });
+  const result = judge(w, { steps, seed, chanceModifier: plan.chanceModifier, inventory: w.inventory, tools: w.tools, lack, team: plan.team });
   const tools = plan.toolId ? w.tools.map((t) => (t.toolId === plan.toolId ? { ...t, durability: t.durability - 1 } : t)) : w.tools;
   const chef = { ...w.chef, mp: w.chef.mp - plan.mp, stamina: Math.max(0, w.chef.stamina - plan.stamina) };
   const world = advanceTime(
@@ -211,7 +235,7 @@ export function startCook(w: World, plan: CookPlan, seed: number): { world: Worl
     session: {
       recipeId: plan.recipe.id, portions: plan.portions, toolId: plan.toolId, steps, seed,
       chanceModifier: plan.chanceModifier, inventoryAtStart: w.inventory, toolsAtStart: w.tools, lack,
-      labels, result, unitCost: plan.unitCost, recoveries: 0,
+      labels, result, unitCost: plan.unitCost, recoveries: 0, team: plan.team,
     },
   };
 }
@@ -239,7 +263,7 @@ export function recoverOnce(w: World, s: CookSession): { world: World; session: 
   }
   const steps: ProcessStep[] = [...s.steps, { kind: "recover", line: 0, recoverId: r.id }];
   // Re-judge with the same seed: earlier outcomes stay identical, only the new step rolls.
-  const result = judge(w, { steps, seed: s.seed, chanceModifier: s.chanceModifier, inventory: s.inventoryAtStart, tools: s.toolsAtStart, lack: s.lack });
+  const result = judge(w, { steps, seed: s.seed, chanceModifier: s.chanceModifier, inventory: s.inventoryAtStart, tools: s.toolsAtStart, lack: s.lack, team: s.team ?? SOLO });
   const chef = { ...w.chef, stamina: Math.max(0, w.chef.stamina - RECOVERY_STAMINA) };
   const world = advanceTime({ ...w, inventory, chef }, RECOVERY_DAYS);
   return {
@@ -256,15 +280,28 @@ export function finishCook(
   s: CookSession,
   finish: FinishInput,
   review: FinishReview,
-): { world: World; dish: DishCore; stock: DishStock; gains: CookingGains; learning: LearningEvent } {
+): { world: World; dish: DishCore; stock: DishStock; gains: CookingGains; learning: LearningEvent; coop: CoopResult | null } {
   const recipe = getRecipe(w, s.recipeId)!;
-  const school = findSchool(w.chef.activeSchoolId, w.customSchools);
+  const team = s.team ?? SOLO;
+  const byPlayer = team.mainId === PLAYER;
+  const hands = mainChefOf(w, team);
+  const school = findSchool(hands.activeSchoolId, w.customSchools);
   const core = buildProcessDish({
     steps: s.steps, result: s.result, school, finish, review, cookingSeed: s.seed,
-    chefLevel: w.chef.level, parentDishId: null,
+    chefLevel: hands.level, parentDishId: null,
   });
   const dish: DishCore = { ...core, name: recipe.name, recipeId: recipe.id };
-  const { chef, gains } = applyGrowth(w.chef, w.customSchools, s.steps, s.result, dish as Dish, Math.floor(Math.log2(s.portions)) * 3);
+  let chef: typeof w.chef;
+  let gains: CookingGains;
+  if (byPlayer) {
+    ({ chef, gains } = applyGrowth(w.chef, w.customSchools, s.steps, s.result, dish as Dish, Math.floor(Math.log2(s.portions)) * 3));
+  } else {
+    // Helping someone else cook: a little experience, no technique growth of your own.
+    const xp = 2 + Math.floor(Math.log2(s.portions));
+    const g = gainXp(w.chef, xp, seedFrom(s.seed, "assist"));
+    chef = g.chef;
+    gains = { xp, skillXp: {}, levelUps: g.levelUps, newSkills: [] };
+  }
   stockCounter += 1;
   const stock: DishStock = {
     id: `stock-${Date.now().toString(36)}-${stockCounter}`,
@@ -281,10 +318,20 @@ export function finishCook(
     price: 0,
     listed: false,
     discounted: false,
+    cookedBy: [team.mainId, ...team.assistantIds],
   };
-  // Phase 5: trial → mastered, mastery, cooking history and derivation ideas.
-  const learned = recordCook({ ...w, chef, dishStock: [...w.dishStock, stock] }, s, dish, finish);
-  return { world: learned.world, dish, stock, gains, learning: learned.event };
+  // Phase 5: trial → mastered, mastery, cooking history and derivation ideas (the player's own cooking only).
+  const base = { ...w, chef, dishStock: [...w.dishStock, stock] };
+  const m = w.recipeBook[recipe.id]?.mastery ?? 0;
+  const learned = byPlayer
+    ? recordCook(base, s, dish, finish)
+    : { world: base, event: { trial: false, mastered: false, trialFailed: false, masteryBefore: m, masteryAfter: m, stageUp: null, newIdeas: [] } as LearningEvent };
+  // Phase 6: cooking together moves every pair in the team.
+  if (team.assistantIds.length === 0) return { world: learned.world, dish, stock, gains, learning: learned.event, coop: null };
+  const succeeded = openFailures(s).length === 0 && dish.rank !== "D";
+  const greatSteps = s.result.outcomes.filter((o) => o.grade === "great" || o.grade === "miracle").length;
+  const after = afterTeamCook(learned.world, team, dish, succeeded, greatSteps);
+  return { world: after.world, dish, stock, gains, learning: learned.event, coop: after.result };
 }
 
 /** 流派 → 販売タグ: the active school colours how the dish is sold. */

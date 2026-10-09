@@ -4,6 +4,45 @@ import { INGREDIENTS } from "../data/ingredients";
 import { BOOKS, TEACHERS } from "../data/learningSources";
 import { getRecipe, learnFromTeacher, readBook, recipeStatus } from "../game/learning/recipeBook";
 import { useGame } from "../state/GameContext";
+import { ALLY_MAP } from "../data/allies";
+import { allyStatus, ALLY_STATUS_LABEL, talkTo } from "../game/social/allies";
+import { getRelation, PLAYER } from "../game/social/relations";
+import { RelationLine } from "../components/SocialParts";
+
+/** 村の人: an ordinary ally can be met and talked to where they live. */
+function PersonSpot({ id, onPeople }: { id: string; onPeople: () => void }) {
+  const { state, dispatch } = useGame();
+  const w = state.world;
+  const a = ALLY_MAP[id];
+  const [said, setSaid] = useState("");
+  if (!a) return null;
+  const status = allyStatus(w, id, { clearedQuestIds: state.clearedQuestIds });
+  return (
+    <div className="mb-3 space-y-2 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-semibold">{a.emoji} {a.name}</span>
+        <span className="text-xs text-stone-500">{ALLY_STATUS_LABEL[status]}</span>
+      </div>
+      <p className="text-xs text-stone-600">{a.blurb}</p>
+      {said && <p className="rounded-lg bg-amber-50 p-2">{said}</p>}
+      {status !== "unmet" && <div><RelationLine r={getRelation(w, PLAYER, id)} /></div>}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          className="btn-primary"
+          onClick={() => {
+            const r = talkTo(w, id);
+            if (typeof r === "string") return setSaid(r);
+            dispatch({ type: "setWorld", world: r.world });
+            setSaid(`「${r.text}」${r.firstMeeting ? "（知り合いになった）" : ""}`);
+          }}
+        >
+          💬 話しかける
+        </button>
+        <button className="btn-secondary" onClick={onPeople}>🤝 仲間画面へ</button>
+      </div>
+    </div>
+  );
+}
 
 /** 村の人・書庫: where a recipe can be learned (known, not yet mastered). */
 function LearnSpot({ f, onKitchen }: { f: Facility; onKitchen: () => void }) {
@@ -66,6 +105,11 @@ export function VillageMap() {
           🍽️ まずはあなたの「食遍歴」を教えてください
         </button>
       )}
+      {state.world.palate && state.world.social.companionChoice === "pending" && (
+        <button className="btn-secondary mb-3 w-full border-violet-300 bg-violet-50" onClick={() => dispatch({ type: "navigate", screen: "people" })}>
+          ✨ 厨房に不思議な気配がする…（相棒との出会い）
+        </button>
+      )}
       <div className="relative aspect-[4/6] w-full overflow-hidden rounded-2xl bg-lime-200 shadow-inner">
         {/* roads */}
         <div className="absolute inset-y-0 left-1/2 w-8 -translate-x-1/2 bg-amber-200/80" />
@@ -97,6 +141,7 @@ export function VillageMap() {
               {info.emoji} {info.name}
             </div>
             <p className="mb-2 text-sm text-stone-600">{info.description}</p>
+            {info.personId && <PersonSpot id={info.personId} onPeople={() => { setInfo(null); dispatch({ type: "navigate", screen: "people" }); }} />}
             {(info.teacherId || info.bookId) && (
               <LearnSpot f={info} onKitchen={() => { setInfo(null); dispatch({ type: "navigate", screen: "kitchen" }); }} />
             )}
