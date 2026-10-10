@@ -1,6 +1,8 @@
 import type { ScreenId } from "./types";
 import { useGame } from "./state/GameContext";
 import { LocationPage } from "./pages/LocationPage";
+import { CharacterCreation } from "./pages/CharacterCreation";
+import { needsCreation } from "./game/creation/creation";
 import { locationOf } from "./game/travel/market";
 import { HOME_LOCATION_ID } from "./data/regions";
 import { Kitchen } from "./pages/Kitchen";
@@ -28,6 +30,9 @@ const WEATHER = { sunny: "☀️晴れ", cloudy: "☁️曇り", rain: "🌧️�
 export default function App() {
   const { state, dispatch } = useGame();
   const { clock, world } = state;
+
+  // Phase 8: a new game is a black, standalone character creation; no normal UI until it is done.
+  if (needsCreation(world)) return <CharacterCreation />;
 
   return (
     <div className="mx-auto min-h-dvh max-w-md bg-[#f7f3ea] pb-16">

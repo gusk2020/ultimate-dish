@@ -4,8 +4,9 @@ import { getCharacter, hasCompanion, line, personalityWords } from "../game/soci
 import { allyStatus, ALLY_STATUS_LABEL, inviteAlly, joinChecks, partyMembers } from "../game/social/allies";
 import { getRelation, PLAYER } from "../game/social/relations";
 import { useGame } from "../state/GameContext";
+import { TOOL_MAP } from "../data/magic";
 import {
-  CompanionSetup, facilityName, nameOf, RelationDetail, RelationLine, ShareMealPanel, TalkButton,
+  facilityName, nameOf, RelationDetail, RelationLine, ShareMealPanel, TalkButton,
 } from "../components/SocialParts";
 
 /** 仲間: the special companion, ordinary allies and how everyone gets on. */
@@ -30,9 +31,12 @@ export function PeoplePage() {
   return (
     <div className="space-y-3 p-4">
       {/* ---- special companion ---- */}
-      {w.social.companionChoice === "pending" && <CompanionSetup />}
+      {/* The companion is chosen (or not) in character creation; this page never asks again. */}
       {w.social.companionChoice === "declined" && (
-        <div className="card text-xs text-stone-600">相棒なしで進んでいる。村の人との関係と駆け引きが中心になる。</div>
+        <div className="card text-xs text-stone-600">
+          相棒なしで進んでいる。村の人との関係と駆け引きが中心になる。
+          {w.identity?.startingToolId && `（旅立ちに魔導具「${TOOL_MAP[w.identity.startingToolId]?.name}」を選んだ）`}
+        </div>
       )}
       {comp && (
         <div className="card space-y-1.5">

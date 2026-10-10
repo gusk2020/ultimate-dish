@@ -17,6 +17,7 @@ import { Meter } from "../components/DishParts";
 import { PalateCard } from "../components/FoodStoryForm";
 import { MarketList } from "../components/MarketList";
 import { FoundingCard } from "../components/FoundingCard";
+import { IdentityCard } from "../components/IdentityCard";
 
 type Tab = "status" | "inventory" | "school";
 
@@ -51,6 +52,7 @@ function StatusTab() {
 
   return (
     <div className="space-y-3">
+      <IdentityCard />
       <PalateCard />
       <div className="card">
         <div className="flex items-baseline justify-between">

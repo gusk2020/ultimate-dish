@@ -67,16 +67,15 @@ export function FoodStoryForm({ onDone }: { onDone?: () => void }) {
 /** The visible part of the player's palate. */
 export function PalateCard() {
   const { state } = useGame();
-  const [editing, setEditing] = useState(false);
   const p = state.world.palate;
-  if (!p || editing) return <FoodStoryForm onDone={() => setEditing(false)} />;
+  // The food story is answered in character creation; this is only a fallback for a world without one.
+  if (!p) return <FoodStoryForm />;
   const { likes, dislikes } = describePalate(p);
   const log = state.world.tastingLog;
   return (
     <div className="card space-y-1 text-sm">
       <div className="flex justify-between">
         <h2 className="section-title mb-0">🍽️ 食の好み</h2>
-        <button className="text-xs text-stone-500 underline" onClick={() => setEditing(true)}>食遍歴を作り直す</button>
       </div>
       <p className="text-xs text-stone-600">{p.profileText}</p>
       <div className="text-xs">好き：{likes.join("・") || "まだはっきりしない"}{dislikes.length > 0 && `／苦手：${dislikes.join("・")}`}</div>

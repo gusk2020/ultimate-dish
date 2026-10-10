@@ -8,6 +8,7 @@ import type { BattleRecord, EaterProfile, TastingRecord } from "../types/eating"
 import type { DerivationIdea, RecipeProgress } from "../types/learning";
 import type { SocialState } from "../types/social";
 import type { TravelState } from "../types/travel";
+import type { PlayerIdentity } from "../types/identity";
 import { HOME_LOCATION_ID } from "../data/regions";
 import { localPrice, locationOf } from "./travel/market";
 import type { RecipeDef } from "../data/recipes";
@@ -60,6 +61,9 @@ export interface World {
   // Phase 7
   /** Where the player is, where they have been and every journey so far. */
   travel: TravelState;
+  // Phase 8
+  /** Decided in the character creation sequence. Gender and age are for text only. */
+  identity: PlayerIdentity;
 }
 
 export function createWorld(): World {
@@ -87,6 +91,7 @@ export function createWorld(): World {
     learning: { talkedTo: [], booksRead: [] },
     social: { persona: null, companionChoice: "pending", companion: null, party: [], relations: {} },
     travel: { currentLocationId: HOME_LOCATION_ID, visitedLocationIds: [HOME_LOCATION_ID], travelLog: [], regionKnowledge: {} },
+    identity: { creationCompleted: false, lean: null, genderExpression: null, age: null, start: null, startingToolId: null, companionPresentation: null },
   };
 }
 

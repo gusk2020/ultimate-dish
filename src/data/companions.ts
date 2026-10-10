@@ -51,6 +51,14 @@ export interface CompanionSpecies {
   species: string;
   emoji: string;
   names: string[];
+  /** Phase 8: names that suit each presentation (the plain `names` stay for older callers). */
+  namesBoy: string[];
+  namesGirl: string[];
+  trueNature: string;
+  visibleForm: Record<"boy" | "girl", string>;
+  lowMagicAppearance: { kind: "animal" | "object"; label: string; remark: string };
+  /** Word swaps for the girl presentation's lines (first person etc.). */
+  girlSpeech?: [string, string][];
   /** Temperament the species brings, blended with the player's opposite. */
   base: Personality;
   /** Which personality axis this species makes most of (so the three cards differ). */
@@ -76,6 +84,11 @@ export const COMPANION_SPECIES: CompanionSpecies[] = [
     species: "灰羽の梟使い魔",
     emoji: "🦉",
     names: ["ノクス", "ハルゥ", "セピア"],
+    namesBoy: ["ノクス", "ハルゥ", "グレイ"],
+    namesGirl: ["セピア", "フクリ", "ミネル"],
+    trueNature: "知恵の夜鳥に連なる使い魔",
+    visibleForm: { boy: "灰色の髪に羽根の耳飾りをした、理屈っぽい少年", girl: "灰色の羽毛のケープを羽織った、物静かな少女" },
+    lowMagicAppearance: { kind: "animal", label: "灰色の小さな梟", remark: "その梟、さっきから何かぶつぶつ言ってないか？" },
     base: { pace: -0.4, talk: -0.3, mind: -0.6, venture: -0.2 },
     focus: "mind",
     roleMaker: "古いレシピを諳んじる作り手",
@@ -110,6 +123,12 @@ export const COMPANION_SPECIES: CompanionSpecies[] = [
     species: "炉火の火蜥蜴",
     emoji: "🦎",
     names: ["ヒバナ", "カグラ", "ロッソ"],
+    namesBoy: ["カグラ", "ロッソ", "ヒバナ"],
+    namesGirl: ["ホムラ", "ヒバナ", "アカネ"],
+    trueNature: "竈の火に宿る精霊（火蜥蜴）",
+    visibleForm: { boy: "赤い髪に火の粉をまとった、落ち着きのない少年", girl: "赤い髪をなびかせ、火の粉をまとった快活な少女" },
+    lowMagicAppearance: { kind: "animal", label: "竈のそばにいる赤いトカゲ", remark: "そのトカゲ、いまあくびしながら喋らなかったか？" },
+    girlSpeech: [["オレ", "アタシ"]],
     base: { pace: 0.6, talk: 0.5, mind: 0.5, venture: 0.6 },
     focus: "pace",
     roleMaker: "火加減で勝負する作り手",
@@ -145,6 +164,11 @@ export const COMPANION_SPECIES: CompanionSpecies[] = [
     species: "瓶詰めの魔導人形",
     emoji: "🫙",
     names: ["オルゴ", "ビン", "テンマ"],
+    namesBoy: ["オルゴ", "テンマ", "コルク"],
+    namesGirl: ["ビン", "ルリ", "メリィ"],
+    trueNature: "瓶に封じられた魔導人形",
+    visibleForm: { boy: "ガラス玉の瞳をした、表情の乏しい少年", girl: "ガラス玉の瞳をした、表情の乏しい少女" },
+    lowMagicAppearance: { kind: "object", label: "古びたガラスの瓶詰め", remark: "その瓶、いま返事しなかったか？" },
     base: { pace: -0.3, talk: -0.6, mind: -0.3, venture: 0.4 },
     focus: "talk",
     roleMaker: "時間と魔導具を操る作り手",

@@ -90,7 +90,7 @@ function LearnSpot({ f, onKitchen }: { f: Facility; onKitchen: () => void }) {
 
 // 2D top-down village: a 4x6 grid with a dirt-road cross. Facilities are tap targets.
 export function VillageMap() {
-  const { state, dispatch } = useGame();
+  const { dispatch } = useGame();
   const [info, setInfo] = useState<Facility | null>(null);
 
   const tap = (f: Facility) => {
@@ -100,16 +100,6 @@ export function VillageMap() {
 
   return (
     <div className="p-4">
-      {!state.world.palate && (
-        <button className="btn-primary mb-3 w-full" onClick={() => dispatch({ type: "navigate", screen: "chef" })}>
-          🍽️ まずはあなたの「食遍歴」を教えてください
-        </button>
-      )}
-      {state.world.palate && state.world.social.companionChoice === "pending" && (
-        <button className="btn-secondary mb-3 w-full border-violet-300 bg-violet-50" onClick={() => dispatch({ type: "navigate", screen: "people" })}>
-          ✨ 厨房に不思議な気配がする…（相棒との出会い）
-        </button>
-      )}
       <div className="relative aspect-[4/6] w-full overflow-hidden rounded-2xl bg-lime-200 shadow-inner">
         {/* roads */}
         <div className="absolute inset-y-0 left-1/2 w-8 -translate-x-1/2 bg-amber-200/80" />

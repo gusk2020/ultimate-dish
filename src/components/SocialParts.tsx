@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { AXIS_LABEL, LEAN_LABEL, PERSONA_QUESTIONS } from "../data/companions";
+import { LEAN_LABEL } from "../data/companions";
 import { RECIPE_MAP } from "../data/recipes";
 import { FACILITIES } from "../data/facilities";
-import type { CharacterDef, FoodMemory, Lean, PersonalityAxis, PlayerPersona, Relationship } from "../types/social";
+import type { CharacterDef, FoodMemory, Relationship } from "../types/social";
 import type { CoopResult } from "../game/social/coop";
 import { describePalate } from "../game/eating/profile";
 import { tasteDish } from "../game/eating/tasting";
 import { STAT_LABEL } from "../game/chef/stats";
 import {
-  chooseCompanion, declineCompanion, generateCandidates, getCharacter, hasCompanion, inferPersona, line, personalityWords, setPersona,
+  getCharacter, hasCompanion, line, perceivedForm, personalityWords,
 } from "../game/social/companion";
 import { allyStatus, ALLY_STATUS_LABEL, joinChecks, partyMembers, talkTo } from "../game/social/allies";
 import { shareMeal, type MealOutcome } from "../game/social/meals";
@@ -52,86 +52,12 @@ function Profile({ c }: { c: CharacterDef }) {
       <div>好み：{likes.join("・") || "なんでも"}{dislikes.length > 0 && `／苦手：${dislikes.join("・")}`}</div>
       <div>得意：{c.specialties.map((s) => s.label).join("・")}（強み：{strengths(c)}）</div>
       <div>主担当で作れる：{c.signatureRecipeIds.map((id) => RECIPE_MAP[id]?.name ?? id).join("、")}</div>
-    </div>
-  );
-}
-
-// ---------- Companion setup ----------
-
-/** 相棒との出会い: a few short choices, three opposite candidates, or no one. */
-export function CompanionSetup() {
-  const { state, dispatch } = useGame();
-  const w = state.world;
-  const [guess] = useState(() => inferPersona(w)); // the guess only seeds the form
-  const [answers, setAnswers] = useState<Partial<Record<PersonalityAxis, number>>>(guess.personality);
-  const [lean, setLean] = useState<Lean | null>(null);
-  const persona = w.social.persona;
-  const candidates = persona ? generateCandidates(w, persona) : [];
-  const setWorld = (world: World) => dispatch({ type: "setWorld", world });
-
-  if (!persona) {
-    const ready = PERSONA_QUESTIONS.every((q) => answers[q.axis] !== undefined) && lean;
-    return (
-      <div className="card space-y-2">
-        <h2 className="section-title mb-0">✨ 相棒との出会い</h2>
-        <p className="text-xs text-stone-600">厨房の隅に、あなたと正反対の何かが居つこうとしている。まずはあなたのことを少しだけ。</p>
-        {PERSONA_QUESTIONS.map((q) => (
-          <div key={q.axis}>
-            <div className="mb-1 text-xs text-stone-500">
-              {q.question}
-              {guess.notes[q.axis] && answers[q.axis] === guess.personality[q.axis] && <span className="ml-1 text-amber-700">（{guess.notes[q.axis]}）</span>}
-            </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {AXIS_LABEL[q.axis].map((label, i) => {
-                const v = i === 0 ? -0.7 : 0.7;
-                return <button key={label} className={`chip ${answers[q.axis] === v ? "chip-on" : ""}`} onClick={() => setAnswers({ ...answers, [q.axis]: v })}>{label}</button>;
-              })}
-            </div>
-          </div>
-        ))}
-        <div>
-          <div className="mb-1 text-xs text-stone-500">あなたは料理を…</div>
-          <div className="grid grid-cols-2 gap-1.5">
-            <button className={`chip ${lean === "maker" ? "chip-on" : ""}`} onClick={() => setLean("maker")}>作る側（作り手）</button>
-            <button className={`chip ${lean === "eater" ? "chip-on" : ""}`} onClick={() => setLean("eater")}>食べる側（食べ手）</button>
-          </div>
-        </div>
-        <button
-          className="btn-primary w-full"
-          disabled={!ready}
-          onClick={() => setWorld(setPersona(w, { personality: answers as PlayerPersona["personality"], lean: lean! }))}
-        >
-          相棒候補を見る
-        </button>
-        <button className="w-full text-xs text-stone-500 underline" onClick={() => setWorld(declineCompanion(w))}>相棒は迎えない</button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="card text-xs text-stone-600">
-        <div className="font-semibold text-stone-800">✨ 相棒候補（あなたと正反対の3体）</div>
-        あなた：{(Object.keys(AXIS_LABEL) as PersonalityAxis[]).map((a) => AXIS_LABEL[a][persona.personality[a] < 0 ? 0 : 1]).join("・")}／{LEAN_LABEL[persona.lean]}
-      </div>
-      {candidates.map((c) => (
-        <div key={c.id} className="card space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="text-3xl">{c.emoji}</span>
-            <div className="min-w-0">
-              <div className="font-bold">{c.name}<span className="ml-1 text-xs font-normal text-stone-500">{c.species}</span></div>
-              <div className="text-xs text-amber-800">{c.role}</div>
-            </div>
-          </div>
-          <p className="rounded-lg bg-stone-100 p-1.5 text-xs">「{line(c, "greet")}」</p>
-          <ul className="list-inside list-disc text-xs text-violet-800">{c.complement!.map((r) => <li key={r}>{r}</li>)}</ul>
-          <div className="text-xs">🛠 {c.blurb}</div>
-          <Profile c={c} />
-          <button className="btn-primary w-full" onClick={() => setWorld(chooseCompanion(w, c))}>この相棒を迎える</button>
-        </div>
-      ))}
-      <button className="btn-secondary w-full" onClick={() => setWorld(declineCompanion(w))}>誰も選ばない（相棒なしで進む）</button>
-      <button className="w-full text-xs text-stone-500 underline" onClick={() => setWorld({ ...w, social: { ...w.social, persona: null } })}>答え直す</button>
+      {c.lowMagicAppearance && (
+        <>
+          <div>あなたには：{perceivedForm(c, "player")}（{c.trueNature}）</div>
+          <div className="text-stone-500">魔力の低い人には：{c.lowMagicAppearance.label}にしか見えない</div>
+        </>
+      )}
     </div>
   );
 }
