@@ -4,7 +4,7 @@
 
 export type EaterSkillId =
   | "judgeGrill" | "judgeStew" | "judgeFerment" | "judgeHeat" | "judgePrep"
-  | "palate" | "smell" | "texture" | "ingredients" | "seafood" | "culture" | "capacity" | "spice" | "report";
+  | "palate" | "smell" | "texture" | "ingredients" | "seafood" | "culture" | "capacity" | "spice" | "report" | "body";
 
 export interface EaterSkillDef {
   id: EaterSkillId;
@@ -29,6 +29,7 @@ export const EATER_SKILLS: EaterSkillDef[] = [
   { id: "capacity", name: "食容量", mirrors: "工程数", effect: "大食いの限界が伸びる" },
   { id: "spice", name: "刺激耐性", mirrors: "強靭", effect: "激辛に強くなる" },
   { id: "report", name: "食レポ", mirrors: "盛り付け", effect: "食レポ執筆料が増える" },
+  { id: "body", name: "身体能力", mirrors: "強靭", effect: "大食い・激辛・遠征に耐える体" },
 ];
 
 export const EATER_SKILL_MAP: Record<EaterSkillId, EaterSkillDef> = Object.fromEntries(EATER_SKILLS.map((s) => [s.id, s])) as Record<EaterSkillId, EaterSkillDef>;

@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Axis } from "../types";
 import { AXIS_LABEL } from "../game/labels";
 import {
-  bite, finishBigEater, KIND_LABEL, resolveCompare, resolveJudge, resolveSpicy, SPICE_LEVELS, spicyChance, startBigEater,
+  bite, comfortSHU, finishBigEater, KIND_LABEL, resolveCompare, resolveJudge, resolveSpicy, SPICE_LEVELS, spicyChance, startBigEater,
   startCompare, startJudge, TRAIT_AXES, type BigEaterSession, type ChallengeOutcome, type CompareSession, type EaterQuestDef,
   type JudgeItem, type JudgeSession,
 } from "../game/eater/challenges";
@@ -112,7 +112,7 @@ function SpicyView({ def, onDone }: { def: EaterQuestDef; onDone: (o: ChallengeO
   const { state, dispatch } = useGame();
   return (
     <div className="card space-y-2 text-sm">
-      <div>辛さを選ぶ（辛いほど賞金が大きい）。辛さへの強さ：{progressionOf(state.world).spiceTolerance}</div>
+      <div>辛さを選ぶ（辛いほど賞金が大きい）。今のあなたが平気なのは約 {comfortSHU(state.world).toLocaleString("ja-JP")} SHU まで。いきなり上を狙うほど危ない。</div>
       {SPICE_LEVELS.map((l) => (
         <button
           key={l.level}
@@ -123,7 +123,7 @@ function SpicyView({ def, onDone }: { def: EaterQuestDef; onDone: (o: ChallengeO
             onDone(r.outcome);
           }}
         >
-          🌶️×{l.level} {l.label}（完食の見込み {Math.round(spicyChance(state.world, l.level) * 100)}%・賞金{def.reward.money * l.level}G）
+          🌶️ {l.shu.toLocaleString("ja-JP")} SHU：{l.label}（完食の見込み {Math.round(spicyChance(state.world, l.level) * 100)}%・賞金{def.reward.money * l.level}G）
         </button>
       ))}
     </div>

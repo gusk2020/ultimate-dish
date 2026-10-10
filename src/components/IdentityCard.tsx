@@ -1,5 +1,5 @@
 import { GENDER_LABEL, LEAN_CHOICES } from "../data/creation";
-import { TOOL_MAP } from "../data/magic";
+import { startingToolLabel } from "../game/roleView";
 import { addressFor } from "../game/creation/identityText";
 import { saveNow, useGame } from "../state/GameContext";
 import { progressionOf } from "../game/codex/codex";
@@ -14,14 +14,14 @@ export function IdentityCard() {
   const comp = w.social.companion;
   const p = progressionOf(w);
   const eater = id.lean === "eater";
-  const role = (
-    <div className="mt-1 grid grid-cols-2 gap-2 text-xs">
-      <div className={`rounded-lg border px-2 py-1 ${eater ? "border-stone-200 text-stone-500" : "border-amber-300 bg-amber-50"}`}>🧑‍🍳 料理人Lv{w.chef.level}</div>
-      <div className={`rounded-lg border px-2 py-1 ${eater ? "border-amber-300 bg-amber-50" : "border-stone-200 text-stone-500"}`}>
-        🍴 フードファイターLv{p.eaterLevel}
-        <span className="block text-[10px] text-stone-500">経験 {p.eaterXp}/{eaterXpForLevel(p.eaterLevel + 1)}・評判 {p.reputation}</span>
-      </div>
+  // Phase 11: only the player's own role is ever shown.
+  const role = eater ? (
+    <div className="mt-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs">
+      🍴 フードファイターLv{p.eaterLevel}
+      <span className="block text-[10px] text-stone-500">経験 {p.eaterXp}/{eaterXpForLevel(p.eaterLevel + 1)}・評判 {p.reputation}</span>
     </div>
+  ) : (
+    <div className="mt-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs">🧑‍🍳 料理人Lv{w.chef.level}</div>
   );
   return (
     <div className="card space-y-0.5 text-sm">
@@ -37,7 +37,7 @@ export function IdentityCard() {
       <div>{LEAN_CHOICES.find((l) => l.id === id.lean)?.label}・{id.genderExpression ? GENDER_LABEL[id.genderExpression] : "—"}・{id.age}歳</div>
       <div className="text-xs text-stone-600">
         旅立ちの道連れ：
-        {id.start === "companion" && comp ? `相棒 ${comp.emoji}${comp.name}（${id.companionPresentation === "girl" ? "女の子" : "男の子"}の姿）` : id.startingToolId ? `魔導具 ${TOOL_MAP[id.startingToolId]?.emoji}${TOOL_MAP[id.startingToolId]?.name}` : "なし"}
+        {id.start === "companion" && comp ? `相棒 ${comp.emoji}${comp.name}（${id.companionPresentation === "girl" ? "女の子" : "男の子"}の姿）` : startingToolLabel(w) ? `${eater ? "鑑定具" : "魔導具"} ${startingToolLabel(w)}` : "なし"}
       </div>
       <div className="text-[11px] text-stone-500">村での呼ばれ方：「{addressFor(id)}」</div>
       {role}

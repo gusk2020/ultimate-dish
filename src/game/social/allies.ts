@@ -1,3 +1,4 @@
+import { countAction } from "../routine/count";
 import { ALLIES, ALLY_MAP } from "../../data/allies";
 import { BATTLE_MAP } from "../../data/battles";
 import type { CharacterDef, JoinCondition } from "../../types/social";
@@ -84,7 +85,7 @@ export function talkTo(w: World, id: string): TalkResult | string {
   const r = getRelation(w, PLAYER, id);
   if (!r) {
     const sim = w.palate ? palateSimilarity(w.palate, c.eater) : 0;
-    const world = ensureRelation(w, PLAYER, id, { affection: 10, trust: 10, foodCompatibility: Math.round(50 + 25 * sim), lastTalkDay: today });
+    const world = countAction(ensureRelation(w, PLAYER, id, { affection: 10, trust: 10, foodCompatibility: Math.round(50 + 25 * sim), lastTalkDay: today }), `talk:${id}`);
     return { world, text: line(c, "greet"), firstMeeting: true, stageUp: null };
   }
   const before = relationStage(r);
@@ -92,6 +93,7 @@ export function talkTo(w: World, id: string): TalkResult | string {
   let world = fresh ? adjustRelation(w, PLAYER, id, { affection: 3 }) : w;
   const key = world.social.relations[r.key];
   world = { ...world, social: { ...world.social, relations: { ...world.social.relations, [r.key]: { ...key, lastTalkDay: today } } } };
+  if (fresh) world = countAction(world, `talk:${id}`);
   const after = relationStage(world.social.relations[r.key]);
   const stageUp = after.index > before.index ? after.name : null;
   const text = c.kind === "ally" && stageUp ? line(c, "progress", today) : stageUp && c.kind === "companion" ? line(c, "relationUp") : line(c, "talk", today);

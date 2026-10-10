@@ -11,6 +11,8 @@ import type { TravelState } from "../types/travel";
 import type { PlayerIdentity } from "../types/identity";
 import type { CodexEntry, OpponentProgress, PlayerProgression, PublicDishRecord } from "../types/codex";
 import type { DailyState } from "./time/daily";
+import type { BankAccount, DiaryEntry, ExpeditionState, FoodStorageState, GuildStorageState, Migrations, PropertyState, RoutineAction } from "../types/life";
+import { defaultRoutines } from "./routine/defaults";
 import type { KitchenState } from "./kitchen/kitchens";
 import { newProgression, recordCooked } from "./codex/codex";
 import { HOME_LOCATION_ID } from "../data/regions";
@@ -82,6 +84,18 @@ export interface World {
   opponents: Record<string, OpponentProgress>;
   /** A kitchen rented for the current part of the day, or an event kitchen provided by a host. */
   kitchen: KitchenState;
+  // Phase 11
+  migrations: Migrations;
+  routines: RoutineAction[];
+  /** Manual repeats of an action (battle:/eater:/talk:/dine: + id) — unlocks routines. */
+  actionCounts: Record<string, number>;
+  /** The last days run by 次の日へ (newest first). */
+  diary: DiaryEntry[];
+  property: PropertyState;
+  foodStorage: FoodStorageState;
+  guildStorage: GuildStorageState;
+  bank: BankAccount;
+  expedition: ExpeditionState | null;
 }
 
 export function createWorld(): World {
@@ -116,6 +130,15 @@ export function createWorld(): World {
     daily: { hunger: 0.2, routineMeals: 0, lastNote: null },
     opponents: {},
     kitchen: { rental: null, event: null },
+    migrations: {},
+    routines: defaultRoutines(),
+    actionCounts: {},
+    diary: [],
+    property: { houses: [], shops: [], portableKitchens: [] },
+    foodStorage: { facilities: [] },
+    guildStorage: { plan: null, items: [] },
+    bank: { opened: false, balance: 0, openedDay: null },
+    expedition: null,
   };
 }
 

@@ -1,4 +1,4 @@
-import { completeAction, passParts } from "../game/time/daily";
+import { completeAction } from "../game/time/daily";
 import { useState } from "react";
 import { STAT_KEYS, type FusionDirection, type Stats } from "../types/world";
 import { itemInfo, STORAGES } from "../data/items";
@@ -11,7 +11,7 @@ import {
 import { xpToNext } from "../game/chef/leveling";
 import { STATE_LABEL, storageLoad, upkeepPerDay } from "../game/inventory/inventory";
 import { canFuse, findSchool, fuseSchools, switchSchool } from "../game/school/school";
-import { advanceTime, rest } from "../game/world";
+import { rest } from "../game/world";
 import { formatDays } from "../game/process/simulate";
 import { useGame } from "../state/GameContext";
 import { Meter } from "../components/DishParts";
@@ -19,7 +19,7 @@ import { PalateCard } from "../components/FoodStoryForm";
 import { MarketList } from "../components/MarketList";
 import { FoundingCard } from "../components/FoundingCard";
 import { IdentityCard } from "../components/IdentityCard";
-import { EaterSchoolTab, EaterSkillsCard } from "../components/EaterSchoolTab";
+import { AppraisalToolsTab, EaterSchoolTab, EaterStatusTab } from "../components/EaterSchoolTab";
 
 type Tab = "status" | "inventory" | "school";
 
@@ -146,7 +146,7 @@ function InventoryTab() {
         </div>
         <div className="grid grid-cols-2 gap-2">
           <button className="btn-secondary" onClick={() => dispatch({ type: "setWorld", world: completeAction(rest(w), w.day) })}>😴 休息（6時間）</button>
-          <button className="btn-secondary" onClick={() => dispatch({ type: "setWorld", world: passParts(advanceTime(w, 1), 3) })}>⏩ 1日進める</button>
+          <button className="btn-secondary" onClick={() => dispatch({ type: "navigate", screen: "routine" })}>🌅 次の日へ（日課）</button>
         </div>
       </div>
 
@@ -263,11 +263,14 @@ function SchoolTab() {
 }
 
 export function ChefPage() {
-  const { state } = useGame();
+  const { state, dispatch } = useGame();
   // Phase 10: an eater's page shows the eater's schools and skills, not the cooks'.
   const eater = state.world.identity?.lean === "eater";
   const [tab, setTab] = useState<Tab>("status");
-  const TABS: [Tab, string][] = [["status", "ステータス"], ["inventory", "在庫"], ["school", eater ? "食べ手の流派" : "流派・魔導具"]];
+  // Phase 11: an eater has no pantry and no cooking tools — the tabs are the eater's own.
+  const TABS: [Tab, string][] = eater
+    ? [["status", "ステータス"], ["inventory", "鑑定具"], ["school", "食べ手の流派"]]
+    : [["status", "ステータス"], ["inventory", "在庫"], ["school", "流派・魔導具"]];
   return (
     <div className="space-y-3 p-4">
       <div className="grid grid-cols-3 gap-1 rounded-xl bg-stone-200 p-1">
@@ -277,9 +280,11 @@ export function ChefPage() {
           </button>
         ))}
       </div>
-      {tab === "status" && <StatusTab />}
-      {tab === "status" && eater && <EaterSkillsCard />}
-      {tab === "inventory" && <InventoryTab />}
+      <button className="card flex w-full items-center justify-between py-2 text-left text-sm" onClick={() => dispatch({ type: "navigate", screen: "routine" })}>
+        <span>📅 日課（ルーチン）と日誌</span><span className="text-xs text-stone-500">›</span>
+      </button>
+      {tab === "status" && (eater ? <EaterStatusTab /> : <StatusTab />)}
+      {tab === "inventory" && (eater ? <AppraisalToolsTab /> : <InventoryTab />)}
       {tab === "school" && (eater ? <EaterSchoolTab /> : <SchoolTab />)}
     </div>
   );

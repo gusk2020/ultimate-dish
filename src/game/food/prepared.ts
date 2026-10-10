@@ -6,6 +6,7 @@ import { seedFrom } from "../rng";
 import { partOf } from "../time/calendar";
 import { locationOf } from "../travel/market";
 import type { World } from "../world";
+import { countAction } from "../routine/count";
 
 // 外食・総菜 (Phase 10): ready-made food bought where you are. The dish is really cooked (by the
 // vendor, once per day per offer), so eating it is a real tasting with real ingredients and methods.
@@ -56,7 +57,7 @@ export function dineOut(w: World, offerId: string): { world: World; dish: DishCo
   if (o.vendor !== "inn") return "ここは持ち帰りの店";
   const dish = offerDish(w, o);
   const stock = stockFor(w, o, dish, 1);
-  return { world: { ...w, chef: { ...w.chef, money: w.chef.money - o.price }, dishStock: [...w.dishStock, stock] }, dish, stock };
+  return { world: countAction({ ...w, chef: { ...w.chef, money: w.chef.money - o.price }, dishStock: [...w.dishStock, stock] }, `dine:${o.id}`), dish, stock };
 }
 
 /** 総菜を買う: takeaway portions go into your stock (not resellable). */

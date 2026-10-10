@@ -99,6 +99,8 @@ export interface Spice {
   price: number;
   description: string;
   unlockAfterQuest?: string;
+  /** Phase 11: heat in Scoville Heat Units (absent = not hot). */
+  scovilleSHU?: number;
 }
 
 export interface MagicTool {
@@ -248,4 +250,4 @@ export interface WorldClock {
   weather: "sunny" | "cloudy" | "rain" | "snow";
 }
 
-export type ScreenId = "village" | "chef" | "people" | "kitchen" | "sales" | "quests" | "dex" | "dining";
+export type ScreenId = "village" | "chef" | "people" | "kitchen" | "sales" | "quests" | "dex" | "dining" | "routine" | "life" | "expedition";

@@ -10,9 +10,11 @@ import { createRng, seedFrom } from "../rng";
 import type { World } from "../world";
 import { completeAction } from "../time/daily";
 import { recordOpponent } from "../battle/rotation";
+import { countAction } from "../routine/count";
 import { addExperience, gainEaterXp, recordEaten } from "./progression";
 import { eaterSchoolOf, eaterSkillLevel } from "./skills";
 import type { EaterSkillId } from "../../data/eaterSchools";
+import { APPRAISAL_MAP } from "../../data/eaterTools";
 import type { DishCore } from "../cooking/buildDish";
 
 // 食べる側の依頼: 食べ比べ・大食い・激辛・審査員. Every truth comes from a dish that was really
@@ -177,7 +179,7 @@ export function perceptionAccuracy(w: World, dish: Pick<DishCore, "recipe" | "pr
   const p = progressionOf(w);
   const met = [...dish.recipe.ingredientIds.map((id) => p.experience.ingredients[id] ?? 0), ...dish.profile.methodIds.map((id) => p.experience.methods[id] ?? 0)];
   const familiarity = Math.min(10, met.reduce((a, b) => a + Math.min(3, b), 0));
-  const skill = item ? 0.02 * eaterSkillLevel(p, ITEM_SKILL[item]) + (eaterSchoolOf(p).judgeBonus[item] ?? 0) : 0;
+  const skill = item ? 0.02 * eaterSkillLevel(p, ITEM_SKILL[item]) + (eaterSchoolOf(p).judgeBonus[item] ?? 0) + toolBonus(p, item) : 0;
   return clamp(0.55 + 0.03 * (p.eaterLevel - 1) + 0.025 * familiarity + skill, 0.55, 0.95);
 }
 
@@ -195,6 +197,7 @@ function settle(w: World, def: EaterQuestDef, dishes: DishCore[], out: Challenge
   const p = progressionOf(world);
   world = { ...world, progression: { ...p, questLog: [...(p.questLog ?? []), { questId: def.id, day: Math.floor(w.day) + 1, success: out.success }] } };
   if (def.rotates) world = recordOpponent(world, def.rivalId, out.success ? "win" : "loss");
+  world = countAction(world, `eater:${def.id}`);
   // Phase 10: a challenge is a main action — one part of the day passes.
   return completeAction(gainEaterXp(world, out.xp, out.reputation, out.money), w.day);
 }
@@ -267,7 +270,7 @@ export interface BigEaterSession {
 
 export function eatingCapacity(w: World): number {
   const p = progressionOf(w);
-  const bonus = eaterSkillLevel(p, "capacity") * 0.3 + eaterSchoolOf(p).capacityBonus;
+  const bonus = eaterSkillLevel(p, "capacity") * 0.3 + eaterSkillLevel(p, "body") * 0.2 + eaterSchoolOf(p).capacityBonus + tools(p).reduce((a, t) => a + t.stomachRelief, 0);
   return Math.round((4 + w.chef.stats.strength * 0.2 + (p.eaterLevel - 1) * 0.6 + bonus + Math.min(2, (p.questLog ?? []).filter((q) => q.questId === "eq-bigeat").length * 0.3)) * 10) / 10;
 }
 
@@ -304,40 +307,77 @@ export function finishBigEater(w: World, s: BigEaterSession): { world: World; ou
   } else {
     out = { success: false, lines: [`${s.eaten}杯で自分から箸を置いた。無理をしない判断だ`], money: 3 * s.eaten, xp: 3 * s.eaten + 2, reputation: 0 };
   }
-  let world = settle(w, def, [s.dish], out, "大食い", { capacity: 2 * s.eaten });
+  // Phase 11: eating more than ever before trains the stomach most; the same amount again, less each time.
+  const p0 = progressionOf(w);
+  const extra = Math.max(0, s.eaten - (p0.maxPortions ?? 0));
+  const repeats = Math.min(5, (p0.questLog ?? []).filter((q) => q.questId === "eq-bigeat").length);
+  const capXp = extra > 0 ? 2 * s.eaten + 8 * extra : Math.max(1, Math.round(2 * s.eaten * Math.pow(0.6, repeats)));
+  let world = settle(w, def, [s.dish], out, "大食い", { capacity: capXp, body: s.eaten });
+  world = { ...world, progression: { ...progressionOf(world), maxPortions: Math.max(p0.maxPortions ?? 0, s.eaten) } };
+  if (extra > 0 && s.eaten > 0) out.lines.push(`自己最多の${s.eaten}杯。胃袋が少し鍛えられた`);
   if (s.failed) world = { ...world, chef: { ...world.chef, stamina: Math.max(0, world.chef.stamina - Math.round(maxStamina(world.chef) * 0.2)) } };
   return { world, outcome: out };
 }
 
 // ---------- 激辛 ----------
 
+/** Phase 11: each level is a Scoville tier and the pepper behind it. */
 export const SPICE_LEVELS = [
-  { level: 1, label: "ひと振り" },
-  { level: 2, label: "たっぷり" },
-  { level: 3, label: "焔の海" },
+  { level: 1, label: "赤芥子の辛口", shu: 10000, pepper: "akagarashi" },
+  { level: 2, label: "焔胡椒たっぷり", shu: 50000, pepper: "homura" },
+  { level: 3, label: "竜炎椒の地獄", shu: 100000, pepper: "ryuenshou" },
 ];
+
+const tools = (p: ReturnType<typeof progressionOf>) => (p.eaterTools ?? []).map((id) => APPRAISAL_MAP[id]).filter(Boolean);
+function toolBonus(p: ReturnType<typeof progressionOf>, item: JudgeItem): number {
+  return tools(p).reduce((a, t) => a + (t.judgeBonus[item] ?? 0), 0);
+}
+
+/** The heat this eater handles comfortably (SHU); it grows as tolerance does. */
+export function comfortSHU(w: World): number {
+  return Math.round(4000 * Math.pow(1.6, spiceTolerance(w)));
+}
+
+/** Heat after the appraisal tools take the edge off (never all of it). */
+export function effectiveSHU(w: World, shu: number): number {
+  const relief = Math.min(0.5, tools(progressionOf(w)).reduce((a, t) => a + t.spiceRelief, 0));
+  return Math.round(shu * (1 - relief));
+}
 
 export function spiceTolerance(w: World): number {
   const p = progressionOf(w);
   return p.spiceTolerance + (p.eaterLevel - 1) * 0.5 + w.chef.stats.strength * 0.05 + eaterSkillLevel(p, "spice") * 0.5 + eaterSchoolOf(p).spiceBonus;
 }
 
+/** Within your comfort it is nearly sure; every doubling beyond it costs a lot — jumping far ahead rarely works. */
 export function spicyChance(w: World, level: number): number {
-  return Math.round(clamp(0.85 - level * 0.25 + spiceTolerance(w) * 0.08, 0.05, 0.95) * 100) / 100;
+  return chanceForSHU(w, SPICE_LEVELS[level - 1].shu);
+}
+
+export function chanceForSHU(w: World, shu: number): number {
+  const r = effectiveSHU(w, shu) / comfortSHU(w);
+  return Math.round((r <= 1 ? 0.95 : clamp(0.95 - 0.3 * Math.log2(r), 0.08, 0.95)) * 100) / 100;
 }
 
 export function resolveSpicy(w: World, def: EaterQuestDef, level: number): { world: World; outcome: ChallengeOutcome } {
   const seed = questSeed(w, def.id);
   const base = cookRivalDish(RIVAL_MAP[def.rivalId], def.recipeIds[0], seed).dish;
-  const dish: DishCore = { ...base, name: `焔胡椒の激辛煮込み（${SPICE_LEVELS[level - 1].label}）`, recipeId: undefined };
+  const tier = SPICE_LEVELS[level - 1];
+  const dish: DishCore = {
+    ...base, name: `激辛煮込み（${tier.label}・${tier.shu.toLocaleString("ja-JP")}SHU）`, recipeId: undefined,
+    profile: { ...base.profile, spiceIds: [...base.profile.spiceIds, tier.pepper] },
+  };
+  const within = effectiveSHU(w, tier.shu) <= comfortSHU(w);
   const ok = createRng(seedFrom(seed, "spicy", level))() < spicyChance(w, level);
   const r = def.reward;
   const out: ChallengeOutcome = ok
     ? { success: true, lines: [`辛さ「${SPICE_LEVELS[level - 1].label}」を完食！汗だくの勝利`], money: r.money * level, xp: r.xp + 8 * level, reputation: r.reputation * level }
     : { success: false, lines: ["途中で水に手が伸びた。口の中が火事で、少し体調を崩した"], money: 2 * level, xp: 4 + 2 * level, reputation: 0 };
-  let world = settle(w, def, [dish], out, "激辛勝負", { spice: 5 * level });
+  let world = settle(w, def, [dish], out, "激辛勝負", { spice: within ? 1 : 5 * level, body: level });
   const p = progressionOf(world);
-  world = { ...world, progression: { ...p, spiceTolerance: Math.round((p.spiceTolerance + (ok ? 1 : 0.5)) * 10) / 10 } };
+  // Phase 11: heat beyond your comfort adapts you; heat you already handle teaches little.
+  const gain = ok ? (within ? 0.2 : 1) : within ? 0.1 : 0.5;
+  world = { ...world, progression: { ...p, spiceTolerance: Math.round((p.spiceTolerance + gain) * 10) / 10, maxSHU: ok ? Math.max(p.maxSHU ?? 0, tier.shu) : p.maxSHU ?? 0 } };
   if (!ok) world = { ...world, chef: { ...world.chef, stamina: Math.max(0, world.chef.stamina - Math.round(maxStamina(world.chef) * 0.15)) } };
   return { world, outcome: out };
 }

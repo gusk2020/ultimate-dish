@@ -1,9 +1,10 @@
 import { GENDER_LABEL } from "../data/creation";
-import { TOOL_MAP } from "../data/magic";
+import { startingToolLabel } from "../game/roleView";
 import { progressionOf } from "../game/codex/codex";
 import { locationOf } from "../game/travel/market";
 import { formatShort } from "../game/time/calendar";
 import { createWorld, type World } from "../game/world";
+import { migratePhase11 } from "../game/migrate";
 import type { GameState } from "./GameContext";
 
 // キャラクター別セーブ: up to four slots in localStorage. Every slot keeps the whole game
@@ -69,7 +70,9 @@ export function browserStorage(): StorageLike {
 export function normalizeWorld(w: Partial<World>): World {
   const base = createWorld();
   const merged = { ...base, ...w } as World;
-  return { ...merged, progression: { ...base.progression, ...(w.progression ?? {}) }, codex: w.codex ?? {}, publicRegistry: w.publicRegistry ?? [] };
+  const normalized = { ...merged, progression: { ...base.progression, ...(w.progression ?? {}) }, codex: w.codex ?? {}, publicRegistry: w.publicRegistry ?? [] };
+  // Phase 11: a pre-Phase 11 world (no migrations record) is migrated once.
+  return migratePhase11({ ...normalized, migrations: w.migrations ?? {} });
 }
 
 export function summarize(w: World): SlotSummary {
@@ -88,7 +91,7 @@ export function summarize(w: World): SlotSummary {
     location: locationOf(w).shortName,
     day: Math.floor(w.day) + 1,
     dateLabel: formatShort(w.day),
-    partner: companion ? `${companion.emoji} ${companion.name}` : toolId && TOOL_MAP[toolId] ? `${TOOL_MAP[toolId].emoji} ${TOOL_MAP[toolId].name}` : "—",
+    partner: companion ? `${companion.emoji} ${companion.name}` : toolId ? startingToolLabel(w) ?? "—" : "—",
   };
 }
 

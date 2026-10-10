@@ -1,3 +1,4 @@
+import { roadRisk } from "../property/property";
 import { itemInfo } from "../../data/items";
 import { getRecipe, discoverRecipe, recipeStatus } from "../learning/recipeBook";
 import { CUISINE_LABEL, HOME_LOCATION_ID, LOCATION_MAP, LOCATIONS, RATION_PRICE } from "../../data/regions";
@@ -197,6 +198,9 @@ export function travel(w: World, plan: TravelPlan, seed: number): TravelResult |
 
   // 3. Time passes with the existing rules (ageing, MP, upkeep). Nights on the road give some sleep;
   //    cooked dishes lose freshness per night as they do at home; hunger costs stamina.
+  // Phase 11: a fat purse on the road draws thieves (the bank keeps deposits safe).
+  const risk = roadRisk(world, seed);
+  world = risk.world;
   const nights = Math.floor(w.day + days) - Math.floor(w.day);
   const beforeInv = world.inventory;
   world = advanceTime(world, days);
@@ -227,7 +231,7 @@ export function travel(w: World, plan: TravelPlan, seed: number): TravelResult |
     from, to: plan.to, via: plan.route.path.slice(1, -1), days,
     companions: plan.companions,
     mealsNeeded: p.needed, mealsFromStock: p.fromStockTotal, mealsBought: p.bought, hungryMeals: p.hungry, foodCost: p.cost,
-    event: delayed ? "雨で半日足止めされた" : undefined,
+    event: [delayed ? "雨で半日足止めされた" : null, risk.text].filter(Boolean).join("／") || undefined,
   };
   world = {
     ...world,

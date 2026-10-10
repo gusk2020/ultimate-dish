@@ -104,7 +104,7 @@ describe("character save slots", () => {
   it("summarises name, role, gender, age, level, place, day and partner", () => {
     const s = (writeSlot({ version: 1, slots: [], lastSlotId: null }, "x", persisted(eaterWorld())) as SaveStore).slots[0].summary;
     expect(s).toMatchObject({ name: "ハート", roleLabel: "食べる側", gender: "女性", age: 22, levelLabel: "フードファイターLv1", day: 1 });
-    expect(s.partner).toContain("魔");
+    expect(s.partner).toContain("温度鑑定針"); // Phase 11: an eater starts with an appraisal tool
   });
 
   it("migrates a legacy single save into slot 1 without deleting it, once", () => {
@@ -244,7 +244,9 @@ describe("食べる側", () => {
     const t = compareTruth(def, s);
     const right = resolveCompare(w, s, t);
     expect(right.outcome.success).toBe(true);
-    expect(Math.round(right.world.chef.money - w.chef.money)).toBe(def.reward.money); // minus a little storage upkeep
+    // minus a little storage upkeep — and, since Phase 11, a routine meal bought (an eater has no pantry)
+    expect(Math.round(right.world.chef.money - w.chef.money)).toBeGreaterThanOrEqual(def.reward.money - 4);
+    expect(Math.round(right.world.chef.money - w.chef.money)).toBeLessThanOrEqual(def.reward.money);
     expect(Object.keys(right.world.codex)).toHaveLength(2);
     expect(right.world.recipeBook["mushroom-porridge"]).toBeUndefined();
     const wrong = resolveCompare(w, s, { pick: 1 - t.pick, trait: TRAIT_AXES.find((a) => a !== t.trait)! });
@@ -305,7 +307,8 @@ describe("食べる側", () => {
     expect(r.outcome.success).toBe(true);
     expect(r.outcome.results.every((x) => x.correct)).toBe(true);
     expect(progressionOf(r.world).reputation).toBe(5 + def.reward.reputation);
-    expect(Math.round(r.world.chef.money - w.chef.money)).toBe(def.reward.money + 15);
+    expect(Math.round(r.world.chef.money - w.chef.money)).toBeGreaterThanOrEqual(def.reward.money + 15 - 4); // a routine meal may be bought (Phase 11)
+    expect(Math.round(r.world.chef.money - w.chef.money)).toBeLessThanOrEqual(def.reward.money + 15);
     expect(r.outcome.lines.join()).toContain("ありがとう");
   });
 

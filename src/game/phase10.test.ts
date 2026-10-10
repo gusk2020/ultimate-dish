@@ -349,6 +349,7 @@ describe("その土地の依頼・勝負", () => {
       "rq-harbor-seafood": { ingredientIds: ["noodles", "cinnamon", "honey", "seaweed"], steps: [{ kind: "spice", id: "homura" }, { kind: "method", id: "pickle" }, { kind: "method", id: "grill" }, { kind: "spice", id: "homura" }] },
       "rq-harbor-preserve": { ingredientIds: ["saltfish", "chicken", "rabbit"], steps: [{ kind: "method", id: "fry" }, { kind: "method", id: "ferment" }, { kind: "method", id: "dry" }] },
       "rq-highland-dairy": { ingredientIds: ["vinegar", "seafish"], steps: [{ kind: "method", id: "pickle" }, { kind: "method", id: "smoke" }] },
+      "rq-harbor-spicy": { ingredientIds: ["boar", "garlic", "onion"], steps: [{ kind: "spice", id: "homura" }, { kind: "method", id: "grill" }] },
       "rq-highland-nourish": { ingredientIds: ["saltfish", "wheat"], steps: [{ kind: "method", id: "smoke" }, { kind: "method", id: "cut" }, { kind: "spice", id: "homura" }] },
     };
     for (const q of QUESTS.filter((x) => x.locationId)) {

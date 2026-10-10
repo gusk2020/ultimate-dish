@@ -245,7 +245,7 @@ function TravelResultView({ result, onClose, onFounding }: { result: TravelResul
 }
 
 export function LocationPage() {
-  const { state } = useGame();
+  const { state, dispatch } = useGame();
   const [view, setView] = useState<"here" | "plan" | TravelResult>("here");
   const [showFounding, setShowFounding] = useState(false);
 
@@ -258,6 +258,10 @@ export function LocationPage() {
         <FoundingNotice onOpen={() => setShowFounding(true)} />
         <TravelEntry onPlan={() => setView("plan")} onFounding={() => setShowFounding(!showFounding)} />
         <DiningEntry />
+        <div className="grid grid-cols-2 gap-2">
+          <button className="card py-2 text-left text-sm" onClick={() => dispatch({ type: "navigate", screen: "life" })}>🏦 倉庫・銀行・住まい</button>
+          <button className="card py-2 text-left text-sm" onClick={() => dispatch({ type: "navigate", screen: "expedition" })}>🗺 遠征{state.world.expedition?.status === "active" ? "（進行中）" : ""}</button>
+        </div>
         {showFounding && <FoundingCard />}
       </div>
       {isHome(state.world) ? <VillageMap /> : <RegionView />}
