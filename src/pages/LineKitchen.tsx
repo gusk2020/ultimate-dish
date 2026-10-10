@@ -298,6 +298,7 @@ export function LineKitchen({ seedSteps, parentDishId, onSeedUsed }: {
 
         {panel === "tool" && (
           <div className="space-y-1.5">
+            {w.tools.length === 0 && <p className="text-xs text-stone-500">魔導具を持っていない。</p>}
             {w.tools.map((t) => (
               <button key={t.toolId} disabled={!lineHas(target) || t.durability <= 0} className="chip w-full items-start text-left" onClick={() => push({ kind: "tool", line: target, toolId: t.toolId })}>
                 <span className="text-sm font-semibold">{TOOL_MAP[t.toolId]?.emoji}{TOOL_MAP[t.toolId]?.name}　<span className="text-[10px] font-normal">耐久{t.durability}</span></span>

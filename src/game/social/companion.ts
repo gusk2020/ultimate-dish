@@ -4,6 +4,7 @@ import {
 import { ALLY_MAP } from "../../data/allies";
 import type { BaseTaste, EaterProfile } from "../../types/eating";
 import type { CharacterDef, Lean, Personality, PersonalityAxis, PlayerPersona } from "../../types/social";
+import type { CompanionPresentation } from "../../types/identity";
 import type { Chef, StatKey, Stats } from "../../types/world";
 import { blankProfile, BASE_TASTES, describePalate } from "../eating/profile";
 import { createDefaultChef, maxMP, maxStamina } from "../chef/stats";
@@ -94,33 +95,54 @@ function complementPalate(player: EaterProfile | null, species: CompanionSpecies
   return { ...prof, profileText: [likes.length ? `${likes.join("・")}が好き` : "", dislikes.length ? `${dislikes.join("・")}は苦手` : ""].filter(Boolean).join("。") };
 }
 
-function speciesDialogue(species: CompanionSpecies, talk: number): CharacterDef["dialogue"] {
+function speciesDialogue(species: CompanionSpecies, talk: number, presentation?: CompanionPresentation): CharacterDef["dialogue"] {
   const i = talk > 0 ? 1 : 0;
-  return Object.fromEntries(Object.entries(species.dialogue).map(([k, v]) => [k, [v![i]]]));
+  const swaps = presentation === "girl" ? species.girlSpeech ?? [] : [];
+  const say = (t: string) => swaps.reduce((acc, [from, to]) => acc.split(from).join(to), t);
+  return Object.fromEntries(Object.entries(species.dialogue).map(([k, v]) => [k, [say(v![i])]]));
+}
+
+/**
+ * Which personality axis each card explains: a species keeps its own focus when the player is
+ * clearly on one side of it; the others take the strongest axis nobody has used yet.
+ */
+function explainedAxes(persona: PlayerPersona): (PersonalityAxis | null)[] {
+  const strong = (a: PersonalityAxis) => Math.abs(persona.personality[a]) >= 0.3;
+  const picked: (PersonalityAxis | null)[] = COMPANION_SPECIES.map((s) => (strong(s.focus) ? s.focus : null));
+  const strongest = [...AXES].sort((a, b) => Math.abs(persona.personality[b]) - Math.abs(persona.personality[a]));
+  return picked.map((a) => {
+    if (a) return a;
+    // No unused axis left (e.g. only two answers known yet): say nothing rather than repeat a card.
+    const free = strongest.find((x) => strong(x) && !picked.includes(x)) ?? null;
+    if (free) picked.push(free);
+    return free;
+  });
 }
 
 /**
  * 相棒候補: three beings, each the player's opposite in role, temperament, palate and strengths,
  * but each leaning on a different axis so the cards are genuinely different.
  */
-export function generateCandidates(w: World, persona: PlayerPersona): CharacterDef[] {
+export function generateCandidates(w: World, persona: PlayerPersona, opts: { presentation?: CompanionPresentation } = {}): CharacterDef[] {
   const lean: Lean = persona.lean === "maker" ? "eater" : "maker";
-  // Player's strongest axes first: candidate i explains the i-th one (falling back to its species focus).
-  const strongest = [...AXES].sort((a, b) => Math.abs(persona.personality[b]) - Math.abs(persona.personality[a]));
+  const axes = explainedAxes(persona);
   const seed = NAME_SEED(w.chef.name);
   const top = topCategory(w.palate);
+  const pres = opts.presentation;
 
   return COMPANION_SPECIES.map((species, i) => {
     const personality = Object.fromEntries(
       AXES.map((a) => [a, clamp1(-0.75 * persona.personality[a] + 0.45 * species.base[a])]),
     ) as Personality;
-    const name = species.names[(seed + i) % species.names.length];
+    // Phase 8: the boy / girl presentation picks the name list; it never touches abilities.
+    const names = pres === "girl" ? species.namesGirl : pres === "boy" ? species.namesBoy : species.names;
+    const name = names[(seed + i) % names.length];
     const id = `companion-${species.id}`;
     const { stats, weak, top: topStat } = complementStats(w.chef.stats, species, lean);
-    const axis = Math.abs(persona.personality[species.focus]) >= 0.3 ? species.focus : strongest[i % strongest.length];
+    const axis = axes[i];
     const reasons = [
       LEAN_COMPLEMENT[persona.lean],
-      AXIS_COMPLEMENT[axis][persona.personality[axis] < 0 ? "low" : "high"],
+      ...(axis ? [AXIS_COMPLEMENT[axis][persona.personality[axis] < 0 ? "low" : "high"]] : []),
       i !== 1 && top
         ? `あなたが${FOOD_COMPLEMENT[top].you}好きなので、この相棒は${FOOD_COMPLEMENT[top].them}を好む`
         : `あなたは${STAT_STYLE[topStat]}型なので、この相棒は${weak.map((k) => STAT_STYLE[k]).join("と")}で補う`,
@@ -133,9 +155,13 @@ export function generateCandidates(w: World, persona: PlayerPersona): CharacterD
       chef: { level: Math.max(1, w.chef.level), stats, schoolId: species.schoolId, skills: { ...species.skills } },
       specialties: species.specialties,
       signatureRecipeIds: species.signatureRecipeIds,
-      dialogue: speciesDialogue(species, personality.talk),
+      dialogue: speciesDialogue(species, personality.talk, pres),
       blurb: species.job,
       complement: reasons,
+      presentationGender: pres,
+      trueNature: species.trueNature,
+      visibleForm: species.visibleForm[pres ?? "boy"],
+      lowMagicAppearance: species.lowMagicAppearance,
     } satisfies CharacterDef;
   });
 }
@@ -152,6 +178,17 @@ export function chooseCompanion(w: World, candidate: CharacterDef): World {
 /** 誰も選ばない: the dry route. Nothing else in the game depends on having a companion. */
 export function declineCompanion(w: World): World {
   return { ...w, social: { ...w.social, companionChoice: "declined", companion: null } };
+}
+
+/**
+ * How someone sees the companion. The player (and anyone with enough magic) sees the person;
+ * everyone else sees an animal or an object. NPC perception will read this later.
+ */
+export const SEE_TRUE_FORM_MAGIC = 30;
+export function perceivedForm(c: CharacterDef, observer: "player" | { magic: number }): string {
+  if (!c.lowMagicAppearance) return c.visibleForm ?? c.name;
+  if (observer === "player" || observer.magic >= SEE_TRUE_FORM_MAGIC) return c.visibleForm ?? c.name;
+  return c.lowMagicAppearance.label;
 }
 
 // ---------- Characters (companion + allies) ----------

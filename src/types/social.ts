@@ -1,6 +1,7 @@
 // Phase 6: companions, relationships and cooperative cooking. Pure data shapes only.
 import type { EaterProfile } from "./eating";
 import type { SkillId, Stats } from "./world";
+import type { CompanionPresentation } from "./identity";
 
 /** Four short personality axes, each -1..1. */
 export type PersonalityAxis = "pace" | "talk" | "mind" | "venture";
@@ -59,6 +60,15 @@ export interface CharacterDef {
   joinConditions?: JoinCondition[];
   /** Allies: where they are met in the village (facility id). */
   homeFacilityId?: string;
+  // Phase 8: how the companion is seen. Its true nature is close to a spirit, a monster or a
+  // familiar. People with enough magic (the player) see a boy / girl with a personality;
+  // ordinary people only see an animal or an object.
+  presentationGender?: CompanionPresentation;
+  trueNature?: string;
+  /** What someone with enough magic sees. */
+  visibleForm?: string;
+  /** What a low-magic person sees, and a line such a person might say about it. */
+  lowMagicAppearance?: { kind: "animal" | "object"; label: string; remark: string };
 }
 
 export type JoinCondition =

@@ -251,7 +251,7 @@ export function RecipeKitchen() {
             const st = w.tools.find((x) => x.toolId === t);
             return (
               <button key={t} disabled={!st || st.durability <= 0} className={`chip min-h-10 px-3 ${toolId === t ? "chip-on" : ""}`} onClick={() => setToolId(t)}>
-                {TOOL_MAP[t]?.emoji}{TOOL_MAP[t]?.name}<span className="text-[10px]">耐久{st?.durability}</span>
+                {TOOL_MAP[t]?.emoji}{TOOL_MAP[t]?.name}<span className="text-[10px]">{st ? `耐久${st.durability}` : "未所持"}</span>
               </button>
             );
           })}
