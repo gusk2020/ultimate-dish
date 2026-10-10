@@ -35,6 +35,18 @@ export interface CreationDraft {
   foodStory: FoodStoryAnswers | null;
   stats: Stats;
   statsConfirmed: boolean;
+  /** Phase 9: typed name; blank = the default for the chosen gender expression. */
+  name: string;
+}
+
+/** Blank names take a card-suit default from the gender expression (text only). */
+export const DEFAULT_NAMES: Record<GenderExpression, string> = { masculine: "スペード", feminine: "ハート", neutral: "クラブ", androgynous: "ダイヤ" };
+export const NAME_MAX = 12;
+
+export function resolvedName(d: Pick<CreationDraft, "name" | "genderExpression">): string {
+  const typed = d.name.trim().slice(0, NAME_MAX);
+  if (typed) return typed;
+  return d.genderExpression ? DEFAULT_NAMES[d.genderExpression] : "名無し";
 }
 
 export function newDraft(): CreationDraft {
@@ -42,7 +54,7 @@ export function newDraft(): CreationDraft {
   return {
     lean: null, genderExpression: null, age: AGE_DEFAULT, start: null, toolId: null, companionPresentation: null,
     temperament: {}, companionSpeciesId: null, companionName: null, foodStory: null,
-    stats: { tech: base, knowledge: base, luck: base, magic: base, strength: base }, statsConfirmed: false,
+    stats: { tech: base, knowledge: base, luck: base, magic: base, strength: base }, statsConfirmed: false, name: "",
   };
 }
 
@@ -112,7 +124,8 @@ export function personaFor(d: CreationDraft, w: World): PlayerPersona {
 
 /** The world as far as the draft goes (stats and palate only once those steps are done). */
 function provisional(base: World, d: CreationDraft): World {
-  let w = base;
+  // The name is known from the identity step on, so the companion's name seed already uses it.
+  let w: World = d.genderExpression ? { ...base, chef: { ...base.chef, name: resolvedName(d) } } : base;
   if (d.statsConfirmed) {
     const chef = { ...w.chef, stats: { ...d.stats } };
     w = { ...w, chef: { ...chef, mp: maxMP(chef), stamina: maxStamina(chef) } };
@@ -173,6 +186,7 @@ export function finalizeCreation(base: World, d: CreationDraft): World | string 
     start: d.start,
     startingToolId: d.start === "tool" ? d.toolId : null,
     companionPresentation: d.start === "companion" ? d.companionPresentation : null,
+    name: resolvedName(d),
   };
   return { ...w, identity };
 }

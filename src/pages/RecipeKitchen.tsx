@@ -14,6 +14,7 @@ import { findSchool } from "../game/school/school";
 import type { CookingGains } from "../game/world";
 import type { LearningEvent } from "../types/learning";
 import { getRecipe, recipeStatus } from "../game/learning/recipeBook";
+import { withCodexImage } from "../game/codex/codex";
 import { newCookingSeed } from "../game/rng";
 import { SKILL_MAP } from "../data/phase2";
 import { textGenerator } from "../services/textGeneration";
@@ -44,7 +45,7 @@ export function RecipeKitchen() {
   const [session, setSession] = useState<CookSession | null>(null);
   const [phase, setPhase] = useState<"plan" | "cooked" | "finish">("plan");
   const [finish, setFinish] = useState<FinishInput>(EMPTY_FINISH);
-  const [done, setDone] = useState<{ dish: Dish; stock: DishStock; gains: CookingGains; learning: LearningEvent; name: string; coop: CoopResult | null; mainId: string } | null>(null);
+  const [done, setDone] = useState<{ dish: Dish; stock: DishStock; gains: CookingGains; learning: LearningEvent; name: string; coop: CoopResult | null; mainId: string; codexNew: boolean | null } | null>(null);
   const [mainId, setMainId] = useState(PLAYER);
   const [helperId, setHelperId] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
@@ -65,6 +66,7 @@ export function RecipeKitchen() {
     return (
       <div className="space-y-3">
         <div className="text-center text-sm font-semibold text-emerald-700">✨ {done.stock.portions}食 完成！図鑑に登録しました</div>
+        {done.codexNew !== null && <div className="text-center text-xs text-emerald-700">📖 「私の図鑑」に記録された{done.codexNew ? "（新しい料理）" : ""}</div>}
         <div className="card"><DishDetail dish={state.dishes.find((d) => d.id === done.dish.id) ?? done.dish} showMeta={false} /></div>
         {done.coop && <CoopResultView coop={done.coop} />}
         {done.mainId === PLAYER && (
@@ -172,8 +174,8 @@ export function RecipeKitchen() {
                 ]);
                 const dish: Dish = { ...out.dish, description, image };
                 dispatch({ type: "addDish", dish });
-                setWorld(out.world);
-                setDone({ dish, stock: out.stock, gains: out.gains, learning: out.learning, name: recipe.name, coop: out.coop, mainId: session.team.mainId });
+                setWorld(withCodexImage(out.world, dish));
+                setDone({ dish, stock: out.stock, gains: out.gains, learning: out.learning, name: recipe.name, coop: out.coop, mainId: session.team.mainId, codexNew: out.codexNew });
                 window.scrollTo({ top: 0 });
               }}
             >

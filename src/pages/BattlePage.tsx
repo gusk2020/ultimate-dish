@@ -8,6 +8,7 @@ import { findSchool } from "../game/school/school";
 import { formatDays } from "../game/process/simulate";
 import { applyBattleResult, battleUnlocked, judgeInfo, judgeKnowledge, runBattle, themeFit } from "../game/battle/battle";
 import { newCookingSeed } from "../game/rng";
+import { codexKeyOf } from "../game/codex/codex";
 import { useGame } from "../state/GameContext";
 import { DishImageView, RankBadge } from "../components/DishParts";
 
@@ -31,6 +32,8 @@ function ResultView({ def, result, dish, onRematch, onBack }: {
   def: BattleDef; result: BattleResult; dish: Dish; onRematch: () => void; onBack: () => void;
 }) {
   const rival = RIVAL_MAP[def.rivalId];
+  const { state } = useGame();
+  const inCodex = !!state.world.codex?.[codexKeyOf({ name: dish.name, recipeId: dish.recipeId ?? null })];
   return (
     <div className="space-y-3">
       <div className={`card text-center ${result.winner === "player" ? "bg-amber-50" : ""}`}>
@@ -64,6 +67,7 @@ function ResultView({ def, result, dish, onRematch, onBack }: {
       <div className="card text-xs">
         <div className="font-semibold">勝敗の理由</div>
         <ul className="list-inside list-disc">{result.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
+        {inCodex && <div className="mt-1 text-emerald-700">📖 審査員の講評が「私の図鑑」に記録された</div>}
         <div className="mt-1">報酬：{result.rewards.map((r) => (r.kind === "xp" ? `経験値+${r.amount}` : r.kind === "money" ? `${r.amount}G` : r.kind === "recipe" ? `レシピ「${RECIPE_MAP[r.id ?? ""]?.name ?? r.id}」を知った（厨房のレシピ帳で条件を確認）` : r.kind)).join("、") || "なし"}</div>
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -85,7 +89,7 @@ function BattleDetail({ def, onBack }: { def: BattleDef; onBack: () => void }) {
   const fight = () => {
     if (!dish) return;
     const r = runBattle(w, def, dish, newCookingSeed());
-    dispatch({ type: "setWorld", world: applyBattleResult(w, r) });
+    dispatch({ type: "setWorld", world: applyBattleResult(w, r, dish) });
     setResult(r);
     window.scrollTo({ top: 0 });
   };

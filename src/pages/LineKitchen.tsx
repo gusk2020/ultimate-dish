@@ -1,3 +1,4 @@
+import { withCodexImage } from "../game/codex/codex";
 import { useEffect, useMemo, useState } from "react";
 import type { Dish } from "../types";
 import type { FinishInput, ProcessStep, StepGrade } from "../types/world";
@@ -117,7 +118,7 @@ export function LineKitchen({ seedSteps, parentDishId, onSeedUsed }: {
     const out = completeCooking(w, steps, result, dish);
     if (typeof out === "string") return setError(out);
     dispatch({ type: "addDish", dish });
-    dispatch({ type: "setWorld", world: out.world });
+    dispatch({ type: "setWorld", world: withCodexImage(out.world, dish) });
     setDone({ dish, gains: out.gains });
     window.scrollTo({ top: 0 });
   };
@@ -129,6 +130,7 @@ export function LineKitchen({ seedSteps, parentDishId, onSeedUsed }: {
     return (
       <div className="space-y-3">
         <div className="text-center text-sm font-semibold text-emerald-700">✨ 完成！図鑑に登録しました</div>
+        <div className="text-center text-xs text-emerald-700">📖 「私の図鑑」に記録された</div>
         <div className="card">
           <DishDetail dish={current} showMeta={false} onRename={(name) => dispatch({ type: "renameDish", id: current.id, name })} />
         </div>

@@ -1,6 +1,7 @@
 import type { TastingResult } from "../../types/eating";
 import type { FoodMemory, MemoryKind } from "../../types/social";
 import { eatPortion } from "../commerce/simpleCook";
+import { recordEaten } from "../eater/progression";
 import { playerCondition } from "../eating/eat";
 import { tasteDish, type TastableDish } from "../eating/tasting";
 import type { World } from "../world";
@@ -65,7 +66,8 @@ export function shareMeal(w: World, input: { stockId: string; dish: TastableDish
     if (id === PLAYER) {
       const ate = eatPortion(world, stock.id);
       if (typeof ate === "string") return ate;
-      world = ate;
+      // Phase 9: the player eating at the table counts for the codex and the eater's growth.
+      world = recordEaten(ate, { ...input.dish, recipeId: input.dish.recipeId ?? stock.recipeId }, "食卓で").world;
     } else {
       world = { ...world, dishStock: world.dishStock.map((s) => (s.id === stock.id ? { ...s, portions: s.portions - 1 } : s)).filter((s) => s.portions > 0) };
     }

@@ -18,4 +18,6 @@ export interface PlayerIdentity {
   start: StartChoice | null;
   startingToolId: string | null;
   companionPresentation: CompanionPresentation | null;
+  /** Phase 9: the player's name (also chef.name). Absent in pre-Phase 9 worlds. */
+  name?: string;
 }
