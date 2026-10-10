@@ -220,7 +220,8 @@ export function Quests() {
           </button>
         ))}
       </div>
-      {eater ? <EaterQuestBoard board={tab === "battle" ? "battle" : "request"} /> : tab === "battle" ? <div className="p-4"><BattlePage /></div> : <QuestList />}
+      {/* Keyed by place: arriving somewhere new never leaves an old place's battle open. */}
+      {eater ? <EaterQuestBoard key={`${loc.id}-${tab}`} board={tab === "battle" ? "battle" : "request"} /> : tab === "battle" ? <div className="p-4"><BattlePage key={loc.id} /></div> : <QuestList key={loc.id} />}
     </div>
   );
 }
