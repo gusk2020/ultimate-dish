@@ -41,7 +41,7 @@ export default function App() {
   return (
     <div className="mx-auto min-h-dvh max-w-md bg-[#f7f3ea] pb-16">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-200 bg-[#f7f3ea]/95 px-4 py-2 backdrop-blur">
-        <h1 className="shrink-0 whitespace-nowrap font-bold">Ultimate Dish</h1>
+        <h1 className="shrink-0 text-xs font-bold leading-tight">Catenary<span className="block text-[10px] font-normal">Devourers &amp; Delicacies</span></h1>
         <span className="text-right text-[11px] leading-tight text-stone-600">
           {Math.floor(world.day) + 1}日目 {formatDays(world.day % 1)}・{SEASON[clock.season]}・{WEATHER[clock.weather]}
           <br />

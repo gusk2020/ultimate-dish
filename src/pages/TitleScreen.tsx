@@ -2,9 +2,33 @@ import { useState } from "react";
 import { useGame } from "../state/GameContext";
 import { canCreate, deleteSlot, formatUpdated, loadStore, MAX_SLOTS, persistStore, slotState, type SaveStore } from "../state/saves";
 
-// 起動画面: start a new character, or continue one of up to four saved characters.
+// 起動時: the title (tap anywhere) → the start menu (new character / continue one of up to four).
+
+export const GAME_TITLE = "Catenary Devourers & Delicacies";
+
+/** タイトル画面: plain text on black, no header or tabs; one tap goes straight on. */
+function Splash({ onStart }: { onStart: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="タップして開始"
+      className="flex min-h-dvh w-full flex-col items-center justify-center bg-black px-6 text-center text-stone-100"
+      onClick={onStart}
+    >
+      <span className="block text-3xl tracking-wide">Catenary</span>
+      <span className="mt-2 block text-lg tracking-wide">Devourers &amp; Delicacies</span>
+      <span className="mt-16 block text-[11px] tracking-[0.3em] text-stone-500">TOUCH TO START</span>
+    </button>
+  );
+}
 
 export function TitleScreen() {
+  const [splash, setSplash] = useState(true);
+  if (splash) return <Splash onStart={() => setSplash(false)} />;
+  return <StartMenu />;
+}
+
+function StartMenu() {
   const { dispatch } = useGame();
   const [store, setStore] = useState<SaveStore>(() => loadStore());
   const [listing, setListing] = useState(false);
@@ -24,8 +48,7 @@ export function TitleScreen() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-black px-5 py-10 text-stone-200">
       <div className="mb-10 mt-6 text-center">
-        <h1 className="text-2xl font-bold tracking-widest text-stone-100">Ultimate Dish</h1>
-        <p className="mt-2 text-xs text-stone-500">剣と魔法と、一皿の物語</p>
+        <h1 className="text-xl font-bold text-stone-100">Catenary<span className="block text-base font-normal">Devourers &amp; Delicacies</span></h1>
       </div>
 
       {!listing ? (
