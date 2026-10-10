@@ -85,7 +85,7 @@ function StartMenu() {
               <div className="mt-1 text-xs text-stone-400">
                 {s.summary.roleLabel}・{s.summary.gender}・{s.summary.age ?? "—"}歳・{s.summary.levelLabel}
               </div>
-              <div className="text-xs text-stone-400">📍{s.summary.location}・{s.summary.day}日目・{s.summary.partner}</div>
+              <div className="text-xs text-stone-400">📍{s.summary.location}・{s.summary.dateLabel ?? `${s.summary.day}日目`}・{s.summary.partner}</div>
               {confirmId === s.id ? (
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button className="rounded-lg border border-rose-700 py-2 text-sm text-rose-300" onClick={() => remove(s.id)}>本当に削除する</button>

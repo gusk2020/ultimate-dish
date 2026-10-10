@@ -213,6 +213,8 @@ export interface DishStock {
   discounted: boolean;
   /** Phase 6: who made it (main cook first). Absent = the player alone. */
   cookedBy?: string[];
+  /** Phase 10: bought ready-made (外食・総菜) — for eating, never for resale. */
+  bought?: boolean;
 }
 
 export interface Contract {

@@ -117,6 +117,8 @@ export interface Rival {
   preferredRecipes: string[];
   /** Quality of the rival's ingredients (0..1): beginners shop worse. */
   pantryQuality: number;
+  /** Phase 10: appears once this rival has been faced OPPONENT_LIMIT times (rotation). */
+  unlockAfter?: string;
 }
 
 export interface BattleDef {
@@ -131,6 +133,8 @@ export interface BattleDef {
   /** Battle ids that must have been fought first. */
   requires: string[];
   intro: string;
+  /** Phase 10: where the battle is held (absent = the home village). */
+  locationId?: string;
 }
 
 export interface JudgeVerdict {

@@ -69,6 +69,30 @@ export const RIVALS: Rival[] = [
     pantryQuality: 0.7,
   },
 ];
+// Phase 10: the next opponents (rotation in the village; one in each other place).
+RIVALS.push(
+  {
+    id: "berta", name: "宿の料理番ベルタ", emoji: "👩‍🍳", blurb: "村の宿屋の台所を仕切る料理番。手堅い家庭の味。",
+    stats: { tech: 12, knowledge: 11, luck: 6, magic: 5, strength: 12 }, schoolId: "village", skills: { fire: 150, knife: 100 },
+    preferredRecipes: ["rabbit-stew", "honey-glazed-chicken", "bean-wheat-soup"], pantryQuality: 0.7, unlockAfter: "gald",
+  },
+  {
+    id: "milo", name: "渡し場の料理人ミロ", emoji: "🛶", blurb: "旅人相手に早くて安い皿を出す若い料理人。",
+    stats: { tech: 12, knowledge: 10, luck: 7, magic: 5, strength: 11 }, schoolId: "village", skills: { fire: 140, knife: 120 },
+    preferredRecipes: ["river-grilled-fish", "river-travelers-noodles", "river-vinegar-fish"], pantryQuality: 0.7,
+  },
+  {
+    id: "carme", name: "港の料理長カルメ", emoji: "⚓", blurb: "異国の香辛料を使いこなす港の酒場の料理長。",
+    stats: { tech: 14, knowledge: 13, luck: 6, magic: 6, strength: 12 }, schoolId: "court", skills: { fire: 180, knife: 120, ferment: 80 },
+    preferredRecipes: ["coast-seafood-stew", "coast-spiced-shells", "coast-dried-fish"], pantryQuality: 0.75,
+  },
+  {
+    id: "olga", name: "燻製師オルガ", emoji: "🏔️", blurb: "山の冬を燻製と乳で越させてきた古老。",
+    stats: { tech: 13, knowledge: 14, luck: 5, magic: 6, strength: 14 }, schoolId: "north", skills: { fire: 160, ferment: 200 },
+    preferredRecipes: ["highland-smoked-ibex", "highland-cheese-porridge", "highland-greens-nuts"], pantryQuality: 0.75,
+  },
+);
+
 export const RIVAL_MAP: Record<string, Rival> = Object.fromEntries(RIVALS.map((r) => [r.id, r]));
 
 export const BATTLES: BattleDef[] = [
@@ -119,4 +143,31 @@ export const BATTLES: BattleDef[] = [
     requires: ["tutorial"],
   },
 ];
+BATTLES.push(
+  {
+    id: "berta-duel", name: "宿の看板料理勝負", kind: "formal", rivalId: "berta", judgeIds: ["j-mayor", "j-bruno"],
+    intro: "「ガルドに勝ったんだってね。次は宿の台所の番だよ」",
+    conditions: { theme: { label: "宿の看板になる一皿", axes: { deliciousness: 1, costPerformance: 0.6, culture: 0.4 }, tags: ["deli", "family", "staple"] } },
+    rewards: [{ kind: "xp", amount: 40 }, { kind: "money", amount: 40 }], specialRules: [], requires: [], locationId: "village",
+  },
+  {
+    id: "river-duel", name: "渡し場の早仕事勝負", kind: "formal", rivalId: "milo", judgeIds: ["j-liene"],
+    intro: "「旅人は待ってくれない。早くてうまい一皿で勝負だ」",
+    conditions: { theme: { label: "旅人の早い一皿", axes: { deliciousness: 1, costPerformance: 0.8 }, tags: ["staple", "light", "meat"] }, timeLimitDays: 0.2 },
+    rewards: [{ kind: "xp", amount: 40 }, { kind: "money", amount: 45 }], specialRules: [], requires: [], locationId: "rivertown",
+  },
+  {
+    id: "harbor-duel", name: "港の魚介勝負", kind: "formal", rivalId: "carme", judgeIds: ["j-liene", "j-bruno"],
+    intro: "「海の幸を、陸の料理人がどう料理するか見せてもらおう」",
+    conditions: { theme: { label: "港の魚介", axes: { deliciousness: 1, rarity: 0.4, culture: 0.4 }, tags: ["soup", "snack", "preserved"] } },
+    rewards: [{ kind: "xp", amount: 50 }, { kind: "money", amount: 60 }], specialRules: [], requires: [], locationId: "harbor",
+  },
+  {
+    id: "highland-duel", name: "冬越しの滋養勝負", kind: "formal", rivalId: "olga", judgeIds: ["j-marta"],
+    intro: "「山の冬は長い。腹と体を温める一皿を作れるかい」",
+    conditions: { theme: { label: "冬を越す滋養", axes: { nutrition: 1, deliciousness: 0.8, sustainability: 0.4 }, tags: ["healthy", "preserved", "meat"] } },
+    rewards: [{ kind: "xp", amount: 50 }, { kind: "money", amount: 55 }], specialRules: [], requires: [], locationId: "highland",
+  },
+);
+
 export const BATTLE_MAP: Record<string, BattleDef> = Object.fromEntries(BATTLES.map((b) => [b.id, b]));

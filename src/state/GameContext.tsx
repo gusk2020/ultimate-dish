@@ -29,6 +29,8 @@ export interface GameState {
   mode: "title" | "play";
   /** The save slot this character lives in. */
   slotId: string | null;
+  /** Phase 10: a recipe picked in the notebook, waiting for the kitchen. */
+  cookRecipeId: string | null;
 }
 
 type Action =
@@ -42,7 +44,9 @@ type Action =
   | { type: "setWorld"; world: World }
   | { type: "newGame" }
   | { type: "loadSlot"; slotId: string; state: PersistedState }
-  | { type: "toTitle" };
+  | { type: "toTitle" }
+  | { type: "cookRecipe"; recipeId: string }
+  | { type: "consumeCookRecipe" };
 
 const initialState: GameState = {
   screen: "village",
@@ -54,6 +58,7 @@ const initialState: GameState = {
   world: createWorld(),
   mode: "title",
   slotId: null,
+  cookRecipeId: null,
 };
 
 function reducer(state: GameState, a: Action): GameState {
@@ -94,9 +99,13 @@ function reducer(state: GameState, a: Action): GameState {
     case "newGame":
       return { ...initialState, world: createWorld(), mode: "play", slotId: newSlotId() };
     case "loadSlot":
-      return { ...initialState, ...a.state, kitchenSeed: null, mode: "play", slotId: a.slotId };
+      return { ...initialState, ...a.state, kitchenSeed: null, cookRecipeId: null, mode: "play", slotId: a.slotId };
     case "toTitle":
       return { ...initialState, world: createWorld() };
+    case "cookRecipe":
+      return { ...state, screen: "kitchen", cookRecipeId: a.recipeId };
+    case "consumeCookRecipe":
+      return { ...state, cookRecipeId: null };
   }
 }
 

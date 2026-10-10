@@ -9,7 +9,9 @@ import type { DerivationIdea, RecipeProgress } from "../types/learning";
 import type { SocialState } from "../types/social";
 import type { TravelState } from "../types/travel";
 import type { PlayerIdentity } from "../types/identity";
-import type { CodexEntry, PlayerProgression, PublicDishRecord } from "../types/codex";
+import type { CodexEntry, OpponentProgress, PlayerProgression, PublicDishRecord } from "../types/codex";
+import type { DailyState } from "./time/daily";
+import type { KitchenState } from "./kitchen/kitchens";
 import { newProgression, recordCooked } from "./codex/codex";
 import { HOME_LOCATION_ID } from "../data/regions";
 import { localPrice, locationOf } from "./travel/market";
@@ -73,6 +75,13 @@ export interface World {
   codex: Record<string, CodexEntry>;
   /** Dishes the player published through the guild. */
   publicRegistry: PublicDishRecord[];
+  // Phase 10
+  /** Hunger, carried routine meals and the last daily note (日常食). */
+  daily: DailyState;
+  /** Everyone faced in a battle or an eater challenge. */
+  opponents: Record<string, OpponentProgress>;
+  /** A kitchen rented for the current part of the day, or an event kitchen provided by a host. */
+  kitchen: KitchenState;
 }
 
 export function createWorld(): World {
@@ -104,6 +113,9 @@ export function createWorld(): World {
     progression: newProgression(),
     codex: {},
     publicRegistry: [],
+    daily: { hunger: 0.2, routineMeals: 0, lastNote: null },
+    opponents: {},
+    kitchen: { rental: null, event: null },
   };
 }
 

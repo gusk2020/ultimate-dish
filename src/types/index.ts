@@ -186,6 +186,8 @@ export interface Dish {
   process?: import("./world").DishProcessInfo;
   /** Set for dishes cooked from a recipe (Phase 3 レシピ調理). */
   recipeId?: string;
+  /** Phase 10: bought ready-made (外食・総菜) — can be eaten, never submitted as your own. */
+  bought?: boolean;
 }
 
 export interface Eater {
@@ -224,6 +226,8 @@ export interface Quest {
   };
   successText: string;
   failText: string;
+  /** Phase 10: where the request is given (absent = the home village). */
+  locationId?: string;
 }
 
 export interface QuestResult {
@@ -244,4 +248,4 @@ export interface WorldClock {
   weather: "sunny" | "cloudy" | "rain" | "snow";
 }
 
-export type ScreenId = "village" | "chef" | "people" | "kitchen" | "sales" | "quests" | "dex";
+export type ScreenId = "village" | "chef" | "people" | "kitchen" | "sales" | "quests" | "dex" | "dining";

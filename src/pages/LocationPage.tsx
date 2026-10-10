@@ -12,6 +12,7 @@ import {
   unlockText, type FreshnessChange, type TravelResult,
 } from "../game/travel/travel";
 import { useGame } from "../state/GameContext";
+import { offersHere } from "../game/food/prepared";
 import { FoundingCard, FoundingNotice } from "../components/FoundingCard";
 import { MarketList } from "../components/MarketList";
 import { VillageMap } from "./VillageMap";
@@ -43,6 +44,20 @@ function TravelEntry({ onPlan, onFounding }: { onPlan: () => void; onFounding: (
         <button className="btn-secondary px-2 text-sm" onClick={onFounding}>🏯 流派</button>
       </div>
     </div>
+  );
+}
+
+/** Phase 10: eating out / ready-made food here (both roles; routine meals are automatic). */
+function DiningEntry() {
+  const { state, dispatch } = useGame();
+  const w = state.world;
+  const inn = offersHere(w, "inn").length;
+  const market = offersHere(w, "market").length;
+  return (
+    <button className="card flex w-full items-center justify-between gap-2 py-2 text-left" onClick={() => dispatch({ type: "navigate", screen: "dining" })}>
+      <span className="text-sm">🍲 宿の食堂・市場の総菜</span>
+      <span className="shrink-0 text-xs text-stone-500">食堂{inn}品・総菜{market}品 ›</span>
+    </button>
   );
 }
 
@@ -242,6 +257,7 @@ export function LocationPage() {
       <div className="space-y-2 px-4 pt-4">
         <FoundingNotice onOpen={() => setShowFounding(true)} />
         <TravelEntry onPlan={() => setView("plan")} onFounding={() => setShowFounding(!showFounding)} />
+        <DiningEntry />
         {showFounding && <FoundingCard />}
       </div>
       {isHome(state.world) ? <VillageMap /> : <RegionView />}

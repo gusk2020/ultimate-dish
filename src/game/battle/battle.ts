@@ -1,4 +1,5 @@
 import { addReview, codexKeyOf } from "../codex/codex";
+import { recordOpponent } from "./rotation";
 import { judgeReviewer, makeReview } from "../codex/reviews";
 import { BATTLE_MAP, JUDGE_MAP, JUDGE_RUMORS, RIVAL_MAP } from "../../data/battles";
 import { newStack } from "../../data/items";
@@ -215,6 +216,8 @@ export function applyBattleResult(w: World, result: BattleResult, playerDish?: T
       }
     }
   }
+  // Phase 10: the opponent is one match further along the rotation.
+  reviewed = recordOpponent(reviewed, def.rivalId, result.winner === "player" ? "win" : result.winner === "rival" ? "loss" : "draw");
   return {
     ...reviewed,
     recipeBook: recipeBookWorld.recipeBook,

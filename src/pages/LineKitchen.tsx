@@ -1,4 +1,7 @@
 import { withCodexImage } from "../game/codex/codex";
+import { afterCooking, KITCHEN_MAP, kitchenStatus, rentKitchen, suggestKitchen } from "../game/kitchen/kitchens";
+import { completeAction } from "../game/time/daily";
+import { KitchenPicker } from "../components/KitchenPicker";
 import { useEffect, useMemo, useState } from "react";
 import type { Dish } from "../types";
 import type { FinishInput, ProcessStep, StepGrade } from "../types/world";
@@ -56,6 +59,13 @@ export function LineKitchen({ seedSteps, parentDishId, onSeedUsed }: {
   const school = findSchool(w.chef.activeSchoolId, w.customSchools);
 
   const [steps, setSteps] = useState<ProcessStep[]>([]);
+  const [kitchenId, setKitchenId] = useState<string | null>(null);
+  const lineNeeds = {
+    methodIds: steps.flatMap((s) => (s.kind === "method" ? [s.methodId] : [])),
+    portions: 1,
+    usesTool: steps.some((s) => s.kind === "tool"),
+  };
+  const lineKitchen = kitchenId && kitchenStatus(w, KITCHEN_MAP[kitchenId], lineNeeds).status === "ok" ? kitchenId : suggestKitchen(w, lineNeeds)?.id ?? null;
   const [lineCount, setLineCount] = useState(1);
   const [target, setTarget] = useState(0);
   const [amount, setAmount] = useState(1);
@@ -115,10 +125,14 @@ export function LineKitchen({ seedSteps, parentDishId, onSeedUsed }: {
       imageGenerator.generate(core),
     ]);
     const dish: Dish = { ...core, description, image };
-    const out = completeCooking(w, steps, result, dish);
+    // Phase 10: a rented kitchen first, then the cook takes (at least) one part of the day.
+    if (!lineKitchen) return setError("使える厨房がない");
+    const rented = rentKitchen(w, lineKitchen, lineNeeds);
+    if (typeof rented === "string") return setError(rented);
+    const out = completeCooking(rented, steps, result, dish);
     if (typeof out === "string") return setError(out);
     dispatch({ type: "addDish", dish });
-    dispatch({ type: "setWorld", world: withCodexImage(out.world, dish) });
+    dispatch({ type: "setWorld", world: completeAction(afterCooking(withCodexImage(out.world, dish), lineKitchen), w.day) });
     setDone({ dish, gains: out.gains });
     window.scrollTo({ top: 0 });
   };
@@ -167,10 +181,11 @@ export function LineKitchen({ seedSteps, parentDishId, onSeedUsed }: {
             finalName: finalLine?.name ?? "料理",
           }}
         />
+        <KitchenPicker needs={lineNeeds} value={lineKitchen} onChange={setKitchenId} />
         {error && <p className="text-sm text-red-700">{error}</p>}
         <div className="grid grid-cols-2 gap-2">
           <button className="btn-secondary" onClick={() => setPhase("build")}>工程に戻る</button>
-          <button className="btn-primary" onClick={complete}>🍽️ 完成！</button>
+          <button className="btn-primary" disabled={!lineKitchen} onClick={complete}>🍽️ 完成！</button>
         </div>
       </div>
     );

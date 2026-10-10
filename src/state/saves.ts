@@ -2,6 +2,7 @@ import { GENDER_LABEL } from "../data/creation";
 import { TOOL_MAP } from "../data/magic";
 import { progressionOf } from "../game/codex/codex";
 import { locationOf } from "../game/travel/market";
+import { formatShort } from "../game/time/calendar";
 import { createWorld, type World } from "../game/world";
 import type { GameState } from "./GameContext";
 
@@ -18,7 +19,7 @@ export interface StorageLike {
   setItem(key: string, value: string): void;
 }
 
-export type PersistedState = Omit<GameState, "kitchenSeed" | "slotId" | "mode">;
+export type PersistedState = Omit<GameState, "kitchenSeed" | "slotId" | "mode" | "cookRecipeId">;
 
 export interface SlotSummary {
   name: string;
@@ -30,6 +31,8 @@ export interface SlotSummary {
   levelLabel: string;
   location: string;
   day: number;
+  /** Phase 10: 世界暦 date and part of the day. */
+  dateLabel?: string;
   partner: string;
 }
 
@@ -84,6 +87,7 @@ export function summarize(w: World): SlotSummary {
     levelLabel: lean === "eater" ? `フードファイターLv${p.eaterLevel}` : `料理人Lv${w.chef.level}`,
     location: locationOf(w).shortName,
     day: Math.floor(w.day) + 1,
+    dateLabel: formatShort(w.day),
     partner: companion ? `${companion.emoji} ${companion.name}` : toolId && TOOL_MAP[toolId] ? `${TOOL_MAP[toolId].emoji} ${TOOL_MAP[toolId].name}` : "—",
   };
 }

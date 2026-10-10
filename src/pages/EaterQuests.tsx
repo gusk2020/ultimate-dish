@@ -2,12 +2,15 @@ import { useState } from "react";
 import type { Axis } from "../types";
 import { AXIS_LABEL } from "../game/labels";
 import {
-  bite, EATER_QUESTS, finishBigEater, KIND_LABEL, resolveCompare, resolveJudge, resolveSpicy, SPICE_LEVELS, spicyChance, startBigEater,
+  bite, finishBigEater, KIND_LABEL, resolveCompare, resolveJudge, resolveSpicy, SPICE_LEVELS, spicyChance, startBigEater,
   startCompare, startJudge, TRAIT_AXES, type BigEaterSession, type ChallengeOutcome, type CompareSession, type EaterQuestDef,
   type JudgeItem, type JudgeSession,
 } from "../game/eater/challenges";
 import { progressionOf } from "../game/codex/codex";
 import { useGame } from "../state/GameContext";
+import { eaterBoard, OPPONENT_LIMIT, opponentOf } from "../game/battle/rotation";
+import { storyOfEater } from "../data/stories";
+import { RIVAL_MAP } from "../data/battles";
 
 // 食べる側の依頼板: 食べ比べ・大食い・激辛・審査員.
 
@@ -171,9 +174,10 @@ type Active =
   | { def: EaterQuestDef; kind: "spicy" }
   | { def: EaterQuestDef; kind: "judge"; s: JudgeSession };
 
-export function EaterQuestBoard() {
+export function EaterQuestBoard({ board }: { board: "battle" | "request" }) {
   const { state } = useGame();
   const w = state.world;
+  const lists = eaterBoard(w);
   const [active, setActive] = useState<Active | null>(null);
   const [out, setOut] = useState<ChallengeOutcome | null>(null);
   const log = progressionOf(w).questLog ?? [];
@@ -205,26 +209,36 @@ export function EaterQuestBoard() {
     setActive({ def, kind: "spicy" });
   };
 
-  return (
-    <div className="space-y-2 p-4">
-      <p className="text-xs text-stone-500">食べる側の依頼。食べて、見極めて、言葉にして稼ぐ。外れても経験は残る。</p>
-      {EATER_QUESTS.map((q) => {
+  const row = (q: EaterQuestDef) => {
         const tries = log.filter((l) => l.questId === q.id);
+        const story = storyOfEater(q.id);
+        const opp = q.rotates ? opponentOf(w, q.rivalId) : null;
         return (
           <div key={q.id} className="card text-sm" data-eater-quest={q.id}>
             <div className="flex items-baseline justify-between gap-2">
               <span className="font-semibold">{q.title}</span>
               <span className="shrink-0 rounded bg-stone-100 px-1.5 text-[11px] text-stone-600">{KIND_LABEL[q.kind]}</span>
             </div>
-            <div className="text-xs text-stone-500">{q.client}・元の依頼：{q.from}</div>
+            <div className="text-xs text-stone-500">{q.client}・{q.label}{opp && `・${RIVAL_MAP[q.rivalId]?.name}の料理 ${opp.matches}/${OPPONENT_LIMIT}回`}</div>
             <div className="text-xs text-stone-600">{q.blurb}</div>
+            {story && <div className="text-[10px] text-stone-400">🔁 物語「{story.title}」— 作る側は料理を出す側で関わる</div>}
             <div className="mt-1 flex items-center justify-between">
               <span className="text-[11px] text-stone-500">報酬 {q.reward.money}G〜{tries.length ? `・挑戦${tries.length}回（成功${tries.filter((t) => t.success).length}）` : ""}</span>
               <button className="btn-primary px-4 py-1.5 text-sm" onClick={() => start(q)}>受ける</button>
             </div>
           </div>
         );
-      })}
+  };
+  const main = board === "battle" ? lists.battles : lists.requests;
+  return (
+    <div className="space-y-2 p-4">
+      <p className="text-xs text-stone-500">
+        {board === "battle" ? `食べる勝負：食べ比べ・大食い・激辛・審査。同じ料理人の皿は${OPPONENT_LIMIT}回まで、済んだら次の料理人へ。` : "食べる依頼：試食・品評・名物選定。食べて、見極めて、言葉にして稼ぐ。"}外れても経験は残る。
+      </p>
+      {main.length === 0 && <p className="card text-sm text-stone-500">現在、この土地で受けられる{board === "battle" ? "勝負" : "依頼"}はない</p>}
+      {main.map(row)}
+      {board === "battle" && lists.rematch.length > 0 && <h3 className="pt-2 text-xs font-semibold text-stone-500">🔁 再戦</h3>}
+      {board === "battle" && lists.rematch.map(row)}
     </div>
   );
 }
