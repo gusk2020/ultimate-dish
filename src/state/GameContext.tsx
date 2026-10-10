@@ -1,10 +1,12 @@
-import { createContext, useContext, useReducer, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useReducer, useRef, type ReactNode } from "react";
 import type { Dish, QuestResult, Recipe, ScreenId, WorldClock } from "../types";
 import { createWorld, type World } from "../game/world";
 import type { ProcessStep } from "../types/world";
+import { needsCreation } from "../game/creation/creation";
+import { loadStore, newSlotId, persistStore, writeSlot, type PersistedState } from "./saves";
 
-// One reducer for the whole prototype. In-memory only (reload clears it);
-// persistence / online sync will hook in here later.
+// One reducer for the whole prototype. Phase 9: each character lives in a save slot
+// (localStorage, see saves.ts) and is saved automatically while playing.
 
 export interface KitchenSeed {
   recipe: Recipe;
@@ -23,6 +25,10 @@ export interface GameState {
   kitchenSeed: KitchenSeed | null;
   /** Phase 2: chef, inventory, tools, schools, time. Updated through pure functions in game/world.ts. */
   world: World;
+  /** Phase 9: the startup screen, or playing (creation included). */
+  mode: "title" | "play";
+  /** The save slot this character lives in. */
+  slotId: string | null;
 }
 
 type Action =
@@ -33,7 +39,10 @@ type Action =
   | { type: "questResult"; result: QuestResult }
   | { type: "derive"; dish: Dish }
   | { type: "consumeSeed" }
-  | { type: "setWorld"; world: World };
+  | { type: "setWorld"; world: World }
+  | { type: "newGame" }
+  | { type: "loadSlot"; slotId: string; state: PersistedState }
+  | { type: "toTitle" };
 
 const initialState: GameState = {
   screen: "village",
@@ -43,6 +52,8 @@ const initialState: GameState = {
   clock: { day: 1, season: "spring", weather: "sunny" },
   kitchenSeed: null,
   world: createWorld(),
+  mode: "title",
+  slotId: null,
 };
 
 function reducer(state: GameState, a: Action): GameState {
@@ -80,13 +91,50 @@ function reducer(state: GameState, a: Action): GameState {
       return { ...state, kitchenSeed: null };
     case "setWorld":
       return { ...state, world: a.world, clock: { ...state.clock, day: Math.floor(a.world.day) + 1 } };
+    case "newGame":
+      return { ...initialState, world: createWorld(), mode: "play", slotId: newSlotId() };
+    case "loadSlot":
+      return { ...initialState, ...a.state, kitchenSeed: null, mode: "play", slotId: a.slotId };
+    case "toTitle":
+      return { ...initialState, world: createWorld() };
   }
 }
+
+export function persistedOf(s: GameState): PersistedState {
+  return { screen: s.screen, dishes: s.dishes, clearedQuestIds: s.clearedQuestIds, questResults: s.questResults, clock: s.clock, world: s.world };
+}
+
+/** Saves the current character into its slot (after creation is complete). */
+export function saveNow(s: GameState): string | null {
+  if (s.mode !== "play" || !s.slotId || needsCreation(s.world)) return null;
+  const next = writeSlot(loadStore(), s.slotId, persistedOf(s));
+  if (typeof next === "string") return next;
+  return persistStore(next);
+}
+
+export const AUTOSAVE_DELAY_MS = 400;
 
 const GameCtx = createContext<{ state: GameState; dispatch: React.Dispatch<Action> } | null>(null);
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  // 自動保存: debounced after every change; flushed when the page is hidden or closed.
+  const latest = useRef(state);
+  latest.current = state;
+  useEffect(() => {
+    if (state.mode !== "play" || !state.slotId || needsCreation(state.world)) return;
+    const t = setTimeout(() => saveNow(latest.current), AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [state.world, state.dishes, state.questResults, state.clearedQuestIds, state.mode, state.slotId]);
+  useEffect(() => {
+    const flush = () => saveNow(latest.current);
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", flush);
+    };
+  }, []);
   return <GameCtx.Provider value={{ state, dispatch }}>{children}</GameCtx.Provider>;
 }
 

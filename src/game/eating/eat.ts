@@ -1,4 +1,7 @@
 import type { TastingRecord, TastingResult } from "../../types/eating";
+import type { Rank } from "../../types";
+import { codexKeyOf, setOwnReport } from "../codex/codex";
+import { gainEaterXp, recordEaten, reportFee, type EatGain } from "../eater/progression";
 import { maxStamina } from "../chef/stats";
 import { eatPortion } from "../commerce/simpleCook";
 import type { World } from "../world";
@@ -18,12 +21,19 @@ export function playerCondition(w: World) {
   return { ...p.condition, fatigue: Math.max(0, Math.min(1, 1 - w.chef.stamina / maxStamina(w.chef))) };
 }
 
-export function eatAndTaste(w: World, stockId: string, dish: TastableDish): { world: World; result: TastingResult } | string {
+export function eatAndTaste(
+  w: World,
+  stockId: string,
+  dish: TastableDish & { recipeId?: string | null; rank?: Rank },
+): { world: World; result: TastingResult; gain: EatGain } | string {
   if (!w.palate) return "先に食遍歴を作ろう";
   const result = tasteDish(dish, w.palate, playerCondition(w));
   const ate = eatPortion(w, stockId);
   if (typeof ate === "string") return ate;
-  return { world: ate, result };
+  // Phase 9: eating grows the eater and records the dish in 私の図鑑 — never its recipe.
+  const stock = w.dishStock.find((s) => s.id === stockId);
+  const eaten = recordEaten(ate, { ...dish, recipeId: dish.recipeId ?? stock?.recipeId ?? null }, stock?.cookedBy && stock.cookedBy[0] !== "player" ? "仲間の料理" : "自分の料理");
+  return { world: eaten.world, result, gain: eaten.gain };
 }
 
 let recordCounter = 0;
@@ -48,8 +58,10 @@ export function recordTasting(
     freeText: freeText.trim().slice(0, 200),
     liking: Math.round(liking * 100) / 100,
   };
-  return {
-    world: { ...w, palate: w.palate ? learnFromMeal(w.palate, dish, liking) : w.palate, tastingLog: [record, ...w.tastingLog] },
-    record,
-  };
+  let world: World = { ...w, palate: w.palate ? learnFromMeal(w.palate, dish, liking) : w.palate, tastingLog: [record, ...w.tastingLog] };
+  // Phase 9: the report becomes the codex entry's own report; an eater is paid a small writing fee.
+  const key = codexKeyOf({ name: dish.name, recipeId: (dish as { recipeId?: string | null }).recipeId ?? null });
+  world = setOwnReport(world, key, result.score, record.freeText || `${Math.round(result.score)}点の一皿`);
+  world = gainEaterXp(world, 3, 0, reportFee(w));
+  return { world, record };
 }

@@ -1,3 +1,4 @@
+import { recordCooked } from "../codex/codex";
 import { itemInfo } from "../../data/items";
 import { METHOD_MAP } from "../../data/methods";
 import type { RecipeDef } from "../../data/recipes";
@@ -289,7 +290,7 @@ export function finishCook(
   s: CookSession,
   finish: FinishInput,
   review: FinishReview,
-): { world: World; dish: DishCore; stock: DishStock; gains: CookingGains; learning: LearningEvent; coop: CoopResult | null } {
+): { world: World; dish: DishCore; stock: DishStock; gains: CookingGains; learning: LearningEvent; coop: CoopResult | null; codexNew: boolean | null } {
   const recipe = getRecipe(w, s.recipeId)!;
   const team = s.team ?? SOLO;
   const byPlayer = team.mainId === PLAYER;
@@ -330,17 +331,24 @@ export function finishCook(
     cookedBy: [team.mainId, ...team.assistantIds],
   };
   // Phase 5: trial → mastered, mastery, cooking history and derivation ideas (the player's own cooking only).
-  const base = { ...w, chef, dishStock: [...w.dishStock, stock] };
+  let base: World = { ...w, chef, dishStock: [...w.dishStock, stock] };
+  // Phase 9: a dish the player completed is registered in 私の図鑑 (helping someone else is not).
+  let codexNew: boolean | null = null;
+  if (byPlayer) {
+    const c = recordCooked(base, dish);
+    base = c.world;
+    codexNew = c.isNew;
+  }
   const m = w.recipeBook[recipe.id]?.mastery ?? 0;
   const learned = byPlayer
     ? recordCook(base, s, dish, finish)
     : { world: base, event: { trial: false, mastered: false, trialFailed: false, masteryBefore: m, masteryAfter: m, stageUp: null, newIdeas: [] } as LearningEvent };
   // Phase 6: cooking together moves every pair in the team.
-  if (team.assistantIds.length === 0) return { world: learned.world, dish, stock, gains, learning: learned.event, coop: null };
+  if (team.assistantIds.length === 0) return { world: learned.world, dish, stock, gains, learning: learned.event, coop: null, codexNew };
   const succeeded = openFailures(s).length === 0 && dish.rank !== "D";
   const greatSteps = s.result.outcomes.filter((o) => o.grade === "great" || o.grade === "miracle").length;
   const after = afterTeamCook(learned.world, team, dish, succeeded, greatSteps);
-  return { world: after.world, dish, stock, gains, learning: learned.event, coop: after.result };
+  return { world: after.world, dish, stock, gains, learning: learned.event, coop: after.result, codexNew };
 }
 
 /** 流派 → 販売タグ: the active school colours how the dish is sold. */

@@ -1,3 +1,5 @@
+import { addReview, codexKeyOf } from "../codex/codex";
+import { judgeReviewer, makeReview } from "../codex/reviews";
 import { BATTLE_MAP, JUDGE_MAP, JUDGE_RUMORS, RIVAL_MAP } from "../../data/battles";
 import { newStack } from "../../data/items";
 import { RECIPE_MAP } from "../../data/recipes";
@@ -189,7 +191,7 @@ export function runBattle(w: World, def: BattleDef, playerDish: TastableDish & {
 }
 
 /** Pays rewards (xp / money now; ingredients, recipes, skills… reserved) and records the match. */
-export function applyBattleResult(w: World, result: BattleResult): World {
+export function applyBattleResult(w: World, result: BattleResult, playerDish?: TastableDish & { recipeId?: string | null }): World {
   let chef = w.chef;
   let recipeBookWorld = w;
   for (const r of result.rewards) {
@@ -200,8 +202,21 @@ export function applyBattleResult(w: World, result: BattleResult): World {
   }
   const def = BATTLE_MAP[result.battleId];
   const fameGain = result.winner === "player" ? (def.kind === "formal" ? 3 : 1) : 0;
+  // Phase 9: the judges' verdicts become third-party reviews in the player's codex.
+  let reviewed = w;
+  if (playerDish) {
+    const key = codexKeyOf({ name: playerDish.name, recipeId: playerDish.recipeId ?? null });
+    if (reviewed.codex?.[key]) {
+      for (const v of result.verdicts) {
+        const j = JUDGE_MAP[v.judgeId];
+        if (!j) continue;
+        const review = makeReview(playerDish, judgeReviewer(j), { context: `${def.name}の審査`, source: "questJudge", day: Math.floor(w.day) + 1, condition: judgeCondition(j, def.conditions) });
+        reviewed = addReview(reviewed, key, { ...review, score: Math.round(v.player), impression: `${v.comment}　${review.impression}` });
+      }
+    }
+  }
   return {
-    ...w,
+    ...reviewed,
     recipeBook: recipeBookWorld.recipeBook,
     chef,
     fame: { ...w.fame, village: (w.fame.village ?? 0) + fameGain },

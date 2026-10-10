@@ -2,6 +2,8 @@ import type { ScreenId } from "./types";
 import { useGame } from "./state/GameContext";
 import { LocationPage } from "./pages/LocationPage";
 import { CharacterCreation } from "./pages/CharacterCreation";
+import { TitleScreen } from "./pages/TitleScreen";
+import { roleLevelLabel } from "./game/eater/progression";
 import { needsCreation } from "./game/creation/creation";
 import { locationOf } from "./game/travel/market";
 import { HOME_LOCATION_ID } from "./data/regions";
@@ -32,16 +34,18 @@ export default function App() {
   const { clock, world } = state;
 
   // Phase 8: a new game is a black, standalone character creation; no normal UI until it is done.
+  // Phase 9: the startup screen chooses (or creates) the character first.
+  if (state.mode === "title") return <TitleScreen />;
   if (needsCreation(world)) return <CharacterCreation />;
 
   return (
     <div className="mx-auto min-h-dvh max-w-md bg-[#f7f3ea] pb-16">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-200 bg-[#f7f3ea]/95 px-4 py-2 backdrop-blur">
-        <h1 className="font-bold">Ultimate Dish</h1>
+        <h1 className="shrink-0 text-xs font-bold leading-tight">Catenary<span className="block text-[10px] font-normal">Devourers &amp; Delicacies</span></h1>
         <span className="text-right text-[11px] leading-tight text-stone-600">
           {Math.floor(world.day) + 1}日目 {formatDays(world.day % 1)}・{SEASON[clock.season]}・{WEATHER[clock.weather]}
           <br />
-          Lv{world.chef.level}・体力{Math.round(world.chef.stamina)}/{maxStamina(world.chef)}・MP{world.chef.mp}/{maxMP(world.chef)}・{Math.floor(world.chef.money)}G
+          {roleLevelLabel(world)}・体力{Math.round(world.chef.stamina)}/{maxStamina(world.chef)}・MP{world.chef.mp}/{maxMP(world.chef)}・{Math.floor(world.chef.money)}G
         </span>
       </header>
 

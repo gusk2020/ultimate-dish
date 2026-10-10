@@ -1,3 +1,4 @@
+import { recordCooked, withCodexImage } from "../game/codex/codex";
 import { useCallback, useEffect, useState } from "react";
 import type { Dish, Ingredient, Step, TasteKey } from "../types";
 import { CATEGORY_LABEL, INGREDIENTS, MAX_INGREDIENTS } from "../data/ingredients";
@@ -66,6 +67,7 @@ function SimpleKitchen() {
     setBusy(true);
     const dish = await completeDish({ ingredientIds, steps }, parentDishId);
     dispatch({ type: "addDish", dish });
+    dispatch({ type: "setWorld", world: withCodexImage(recordCooked(state.world, dish).world, dish) });
     setResult(dish);
     setBusy(false);
     window.scrollTo({ top: 0 });

@@ -1,3 +1,4 @@
+import { EaterQuestBoard } from "./EaterQuests";
 import { useEffect, useRef, useState } from "react";
 import { BattlePage } from "./BattlePage";
 import type { Eater, Quest, QuestResult, TasteKey } from "../types";
@@ -180,17 +181,23 @@ function QuestList() {
 
 /** 勝負 tab: cooking battles (Phase 4) and the village quests (Phase 1). */
 export function Quests() {
-  const [tab, setTab] = useState<"battle" | "quest">("battle");
+  const { state } = useGame();
+  // Phase 9: 食べる側 starts on the eater board; both roles can use every board.
+  const eater = state.world.identity?.lean === "eater";
+  const [tab, setTab] = useState<"eat" | "battle" | "quest">(eater ? "eat" : "battle");
+  const tabs = (eater
+    ? [["eat", "🍴 食べる依頼"], ["battle", "⚔️ 料理勝負"], ["quest", "📜 依頼"]]
+    : [["battle", "⚔️ 料理勝負"], ["quest", "📜 依頼"], ["eat", "🍴 食べる依頼"]]) as [typeof tab, string][];
   return (
     <div>
-      <div className="mx-4 mt-4 grid grid-cols-2 gap-1 rounded-xl bg-stone-200 p-1">
-        {([["battle", "⚔️ 料理勝負"], ["quest", "📜 依頼"]] as const).map(([t, l]) => (
+      <div className="mx-4 mt-4 grid grid-cols-3 gap-1 rounded-xl bg-stone-200 p-1">
+        {tabs.map(([t, l]) => (
           <button key={t} className={`min-h-10 rounded-lg text-sm ${tab === t ? "bg-white font-bold shadow" : "text-stone-600"}`} onClick={() => setTab(t)}>
             {l}
           </button>
         ))}
       </div>
-      {tab === "battle" ? <div className="p-4"><BattlePage /></div> : <QuestList />}
+      {tab === "eat" ? <EaterQuestBoard /> : tab === "battle" ? <div className="p-4"><BattlePage /></div> : <QuestList />}
     </div>
   );
 }

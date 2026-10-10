@@ -8,7 +8,7 @@ import { STAT_KEYS, type Stats } from "../types/world";
 import type { World } from "../game/world";
 import {
   clampAge, creationCandidates, creationSteps, finalizeCreation, newDraft, nextStep, previewCompanion, previousStep, speciesIdOf,
-  STEP_LABEL, stepDone, suggestedStats, type CreationDraft, type CreationStep,
+  STEP_LABEL, stepDone, suggestedStats, type CreationDraft, type CreationStep, resolvedName, DEFAULT_NAMES, NAME_MAX,
 } from "../game/creation/creation";
 import { addressFor, firstPersonCandidates } from "../game/creation/identityText";
 import { buildPlayerProfile, describePalate } from "../game/eating/profile";
@@ -231,6 +231,22 @@ function CompanionStep({ base, draft, onTemperament, onPick }: {
   );
 }
 
+function NameInput({ draft, onChange }: { draft: CreationDraft; onChange: (name: string) => void }) {
+  return (
+    <label className="block space-y-1">
+      <span className="text-xs text-stone-400">名前（空欄なら「{draft.genderExpression ? DEFAULT_NAMES[draft.genderExpression] : "—"}」）</span>
+      <input
+        aria-label="名前"
+        className="w-full rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-sm text-stone-100 placeholder:text-stone-600"
+        value={draft.name}
+        maxLength={NAME_MAX}
+        placeholder={draft.genderExpression ? DEFAULT_NAMES[draft.genderExpression] : "姿を選ぶと既定の名前が決まる"}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  );
+}
+
 function Row({ label, value, onChange, children }: { label: string; value: ReactNode; onChange: () => void; children?: ReactNode }) {
   return (
     <div className="space-y-1 border-b border-stone-800 py-3">
@@ -255,6 +271,7 @@ function ConfirmStep({ base, draft, goEdit, onStart, error }: { base: World; dra
     <div className="space-y-4">
       <Title sub="変えたいところは、いつでも戻って変えられる。">この人物で、始めますか</Title>
       <div>
+        <Row label="名前" value={resolvedName(draft)} onChange={() => goEdit("identity")} />
         <Row label="料理を" value={LEAN_CHOICES.find((l) => l.id === draft.lean)?.label} onChange={() => goEdit("lean")} />
         <Row
           label="性別表現・年齢"
@@ -332,7 +349,7 @@ export function CharacterCreation() {
   if (born) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-black px-6 text-center" onClick={enter}>
-        <p className="animate-pulse text-lg tracking-widest text-stone-200">――そして、あなたの物語が始まる。</p>
+        <p className="animate-pulse text-lg tracking-widest text-stone-200">――そして、{born.chef.name}の物語が始まる。</p>
       </div>
     );
   }
@@ -355,6 +372,7 @@ export function CharacterCreation() {
         <Title sub="どれを選んでも、能力や才能には何の違いもない。">あなたの姿と、歳</Title>
         <GenderDiamond value={draft.genderExpression} onChange={(g) => setDraft({ ...draft, genderExpression: g })} />
         <AgePicker value={draft.age} onChange={(a) => setDraft({ ...draft, age: a })} />
+        <NameInput draft={draft} onChange={(name) => setDraft({ ...draft, name })} />
         <Primary disabled={!stepDone(draft, "identity")} onClick={() => finish(draft, "identity")}>次へ</Primary>
       </div>
     );

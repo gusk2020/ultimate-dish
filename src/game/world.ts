@@ -9,6 +9,8 @@ import type { DerivationIdea, RecipeProgress } from "../types/learning";
 import type { SocialState } from "../types/social";
 import type { TravelState } from "../types/travel";
 import type { PlayerIdentity } from "../types/identity";
+import type { CodexEntry, PlayerProgression, PublicDishRecord } from "../types/codex";
+import { newProgression, recordCooked } from "./codex/codex";
 import { HOME_LOCATION_ID } from "../data/regions";
 import { localPrice, locationOf } from "./travel/market";
 import type { RecipeDef } from "../data/recipes";
@@ -64,6 +66,13 @@ export interface World {
   // Phase 8
   /** Decided in the character creation sequence. Gender and age are for text only. */
   identity: PlayerIdentity;
+  // Phase 9
+  /** 食べる側の成長 (maker growth stays on chef). */
+  progression: PlayerProgression;
+  /** 私の図鑑: dishes the player has made or eaten, by codex key. */
+  codex: Record<string, CodexEntry>;
+  /** Dishes the player published through the guild. */
+  publicRegistry: PublicDishRecord[];
 }
 
 export function createWorld(): World {
@@ -92,6 +101,9 @@ export function createWorld(): World {
     social: { persona: null, companionChoice: "pending", companion: null, party: [], relations: {} },
     travel: { currentLocationId: HOME_LOCATION_ID, visitedLocationIds: [HOME_LOCATION_ID], travelLog: [], regionKnowledge: {} },
     identity: { creationCompleted: false, lean: null, genderExpression: null, age: null, start: null, startingToolId: null, companionPresentation: null },
+    progression: newProgression(),
+    codex: {},
+    publicRegistry: [],
   };
 }
 
@@ -164,7 +176,7 @@ export function completeCooking(
   steps: ProcessStep[],
   result: ProcessResult,
   dish: Dish,
-): { world: World; gains: CookingGains } | string {
+): { world: World; gains: CookingGains; codexNew: boolean } | string {
   let inventory = w.inventory;
   const take = (id: string, amount: number) => {
     const next = consume(inventory, id, amount);
@@ -191,8 +203,9 @@ export function completeCooking(
   const { chef: leveled, gains } = applyGrowth(
     { ...w.chef, mp: Math.max(0, w.chef.mp - result.mpCost) }, w.customSchools, steps, result, dish,
   );
-  const world = advanceTime({ ...w, inventory, tools, chef: leveled }, result.totalDays);
-  return { world, gains };
+  const timed = advanceTime({ ...w, inventory, tools, chef: leveled }, result.totalDays);
+  const c = recordCooked(timed, dish);
+  return { world: c.world, gains, codexNew: c.isNew };
 }
 
 /** Growth from one cook: skill xp per step (school multipliers apply), school mastery, records, xp. */
