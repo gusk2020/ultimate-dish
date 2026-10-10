@@ -14,7 +14,7 @@ import type { World } from "../world";
 export type CodexDish = Pick<Dish, "id" | "name" | "recipe" | "profile" | "total"> & { recipeId?: string | null; rank?: Rank; image?: Dish["image"] };
 
 export function newProgression(): PlayerProgression {
-  return { eaterXp: 0, eaterLevel: 1, reputation: 0, experience: { ingredients: {}, methods: {}, regions: {} }, eatenCounts: {}, spiceTolerance: 0, questLog: [], eaterSchoolId: DEFAULT_EATER_SCHOOL, eaterSkills: {} };
+  return { eaterXp: 0, eaterLevel: 1, reputation: 0, experience: { ingredients: {}, methods: {}, regions: {} }, eatenCounts: {}, spiceTolerance: 0, questLog: [], eaterSchoolId: DEFAULT_EATER_SCHOOL, eaterSkills: {}, eaterTools: [], maxPortions: 0, maxSHU: 0 };
 }
 
 export const progressionOf = (w: Pick<World, "progression">): PlayerProgression => w.progression ?? newProgression();
@@ -24,6 +24,11 @@ export function codexKeyOf(dish: Pick<CodexDish, "name" | "recipeId">): string {
 }
 
 const today = (w: World) => Math.floor(w.day) + 1;
+
+/** Keeps the last 30 events of a dish. */
+export function withEvent(e: CodexEntry, day: number, text: string): CodexEntry {
+  return { ...e, events: [...(e.events ?? []), { day, text }].slice(-30) };
+}
 
 function upsert(w: World, dish: CodexDish, origin: string): { entry: CodexEntry; isNew: boolean } {
   const key = codexKeyOf(dish);
@@ -57,7 +62,7 @@ function upsert(w: World, dish: CodexDish, origin: string): { entry: CodexEntry;
 /** 作る側: completing a dish registers it (and counts a reproduction of a published recipe). */
 export function recordCooked(w: World, dish: CodexDish, origin = "自作"): { world: World; entry: CodexEntry; isNew: boolean } {
   const { entry: e, isNew } = upsert(w, dish, origin);
-  const entry: CodexEntry = { ...e, timesCooked: e.timesCooked + 1, firstCookedDay: e.firstCookedDay ?? today(w) };
+  const entry: CodexEntry = { ...withEvent(e, today(w), e.timesCooked === 0 ? `初めて作った（${origin}）` : `また作った（${e.timesCooked + 1}回目）`), timesCooked: e.timesCooked + 1, firstCookedDay: e.firstCookedDay ?? today(w) };
   let publicRegistry = w.publicRegistry ?? [];
   if (entry.publicId) {
     publicRegistry = publicRegistry.map((p) => (p.id === entry.publicId ? { ...p, reproductions: p.reproductions + 1 } : p));
@@ -68,7 +73,7 @@ export function recordCooked(w: World, dish: CodexDish, origin = "自作"): { wo
 /** 食べる側: eating registers the dish. The recipe book is never touched. */
 export function recordEatenEntry(w: World, dish: CodexDish, origin: string): { world: World; entry: CodexEntry; isNew: boolean } {
   const { entry: e, isNew } = upsert(w, dish, origin);
-  const entry: CodexEntry = { ...e, timesEaten: e.timesEaten + 1, firstEatenDay: e.firstEatenDay ?? today(w) };
+  const entry: CodexEntry = { ...withEvent(e, today(w), `${e.timesEaten === 0 ? "初めて食べた" : "食べた"}（${origin}）`), timesEaten: e.timesEaten + 1, firstEatenDay: e.firstEatenDay ?? today(w) };
   return { world: { ...w, codex: { ...(w.codex ?? {}), [entry.key]: entry } }, entry, isNew };
 }
 
@@ -83,7 +88,7 @@ export function addReview(w: World, key: string, review: ThirdPartyReview): Worl
   const e = w.codex?.[key];
   if (!e) return w;
   const publicRegistry = (w.publicRegistry ?? []).map((p) => (e.publicId && p.id === e.publicId ? { ...p, reviews: [...p.reviews, review] } : p));
-  return { ...w, codex: { ...w.codex, [key]: { ...e, reviews: [...e.reviews, review] } }, publicRegistry };
+  return { ...w, codex: { ...w.codex, [key]: { ...withEvent(e, review.day, `${review.reviewerName}が${review.score}点の食レポ（${review.context}）`), reviews: [...e.reviews, review] } }, publicRegistry };
 }
 
 export function codexEntries(w: World): CodexEntry[] {

@@ -1,9 +1,9 @@
-import type { ScreenId } from "./types";
 import { useGame } from "./state/GameContext";
 import { LocationPage } from "./pages/LocationPage";
 import { CharacterCreation } from "./pages/CharacterCreation";
 import { TitleScreen } from "./pages/TitleScreen";
 import { roleLevelLabel } from "./game/eater/progression";
+import { EATER_TABS, MAKER_TABS } from "./game/roleView";
 import { needsCreation } from "./game/creation/creation";
 import { locationOf } from "./game/travel/market";
 import { HOME_LOCATION_ID } from "./data/regions";
@@ -17,27 +17,11 @@ import { maxMP, maxStamina } from "./game/chef/stats";
 import { formatDate } from "./game/time/calendar";
 import { TimeMeter } from "./components/TimeMeter";
 import { DiningPage } from "./pages/DiningPage";
+import { RoutinePage } from "./pages/RoutinePage";
+import { LifePage } from "./pages/LifePage";
+import { ExpeditionPage } from "./pages/ExpeditionPage";
 
-type Tab = { id: ScreenId; label: string; icon: string };
 
-/** Phase 10: the two roles play different games, so they get different tabs. */
-const MAKER_TABS: Tab[] = [
-  { id: "village", label: "村", icon: "🗺️" },
-  { id: "chef", label: "料理人", icon: "🧑‍🍳" },
-  { id: "people", label: "仲間", icon: "🤝" },
-  { id: "kitchen", label: "厨房", icon: "🍳" },
-  { id: "sales", label: "販売", icon: "🏪" },
-  { id: "quests", label: "勝負", icon: "⚔️" },
-  { id: "dex", label: "ノート", icon: "📖" },
-];
-const EATER_TABS: Tab[] = [
-  { id: "village", label: "村", icon: "🗺️" },
-  { id: "chef", label: "食べ手", icon: "🍴" },
-  { id: "people", label: "仲間", icon: "🤝" },
-  { id: "dining", label: "食事", icon: "🍲" },
-  { id: "quests", label: "勝負", icon: "⚔️" },
-  { id: "dex", label: "ノート", icon: "📖" },
-];
 
 const WEATHER = { sunny: "☀️晴れ", cloudy: "☁️曇り", rain: "🌧️雨", snow: "❄️雪" };
 
@@ -75,6 +59,9 @@ export default function App() {
         <div hidden={state.screen !== "quests"}><Quests /></div>
         <div hidden={state.screen !== "dex"}><Dex /></div>
         <div hidden={state.screen !== "dining"}><DiningPage /></div>
+        <div hidden={state.screen !== "routine"}><RoutinePage /></div>
+        <div hidden={state.screen !== "life"}><LifePage /></div>
+        <div hidden={state.screen !== "expedition"}><ExpeditionPage /></div>
       </main>
 
       <nav className={`fixed inset-x-0 bottom-0 z-10 mx-auto grid h-16 max-w-md border-t border-stone-200 bg-white ${tabs.length === 7 ? "grid-cols-7" : "grid-cols-6"}`}>

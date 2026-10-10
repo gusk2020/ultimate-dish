@@ -1,5 +1,6 @@
 import type { CodexEntry, PublicDishRecord, PublicStage, ThirdPartyReview } from "../../types/codex";
 import type { World } from "../world";
+import { withEvent } from "./codex";
 
 // 公開料理: dishes published through the guild climb from the guild register to the world canon.
 // Public score = the dish's own (absolute) score plus third-party reviews, weighted by the
@@ -84,7 +85,7 @@ export function publish(w: World, key: string): { world: World; record: PublicDi
     world: {
       ...w,
       chef: { ...w.chef, money: w.chef.money - PUBLISH_FEE },
-      codex: { ...w.codex, [key]: { ...e, publicId: record.id } },
+      codex: { ...w.codex, [key]: { ...withEvent(e, record.publishedDay, "料理ギルドに公開した"), publicId: record.id } },
       publicRegistry: [...reg, record],
     },
     record,

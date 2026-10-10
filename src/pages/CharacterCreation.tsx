@@ -4,6 +4,7 @@ import {
 } from "../data/creation";
 import { FOOD_STORY } from "../data/foodStory";
 import { TOOL_MAP } from "../data/magic";
+import { APPRAISAL_MAP, EATER_TOOL_FOR } from "../data/eaterTools";
 import { STAT_KEYS, type Stats } from "../types/world";
 import type { World } from "../game/world";
 import {
@@ -266,7 +267,8 @@ function ConfirmStep({ base, draft, goEdit, onStart, error }: { base: World; dra
   const comp = previewCompanion(base, draft);
   const palate = draft.foodStory ? buildPlayerProfile("あなた", draft.foodStory) : null;
   const taste = palate ? describePalate(palate) : null;
-  const tool = draft.toolId ? TOOL_MAP[draft.toolId] : null;
+  const appraisal = draft.lean === "eater" && draft.toolId ? APPRAISAL_MAP[EATER_TOOL_FOR[draft.toolId]] : null;
+  const tool = draft.toolId ? (appraisal ?? TOOL_MAP[draft.toolId]) : null;
   return (
     <div className="space-y-4">
       <Title sub="変えたいところは、いつでも戻って変えられる。">この人物で、始めますか</Title>
@@ -297,7 +299,7 @@ function ConfirmStep({ base, draft, goEdit, onStart, error }: { base: World; dra
         )}
         {draft.start === "tool" && (
           <Row label="魔導具" value={tool ? `${tool.emoji} ${tool.name}` : "—"} onChange={() => goEdit("tool")}>
-            {draft.toolId && <div className="text-[11px] text-stone-400">{TOOL_INTRO[draft.toolId]?.good}</div>}
+            {draft.toolId && <div className="text-[11px] text-stone-400">{appraisal ? appraisal.good : TOOL_INTRO[draft.toolId]?.good}</div>}
           </Row>
         )}
         <Row label="食遍歴" value={palate?.memories?.[0] ?? "—"} onChange={() => goEdit("foodStory")}>
@@ -390,13 +392,17 @@ export function CharacterCreation() {
   } else if (step === "tool") {
     body = (
       <div className="space-y-6">
-        <Title sub="選ばなかった魔導具は、まだ手元にない。">魔導具をひとつ</Title>
+        <Title sub={draft.lean === "eater" ? "食べる側の魔導具は、料理を見抜くための鑑定具。選ばなかったものは、まだ手元にない。" : "選ばなかった魔導具は、まだ手元にない。"}>魔導具をひとつ</Title>
         <div className="space-y-3">
-          {Object.entries(TOOL_INTRO).map(([id, t]) => (
-            <Choice key={id} on={draft.toolId === id} sub={`${t.line}得意：${t.good}`} onClick={() => finish({ ...draft, toolId: id }, "tool")}>
-              {TOOL_MAP[id]?.emoji} {TOOL_MAP[id]?.name}
-            </Choice>
-          ))}
+          {Object.entries(TOOL_INTRO).map(([id, t]) => {
+            // Phase 11: an eater's slot holds an appraisal tool, never a cooking tool.
+            const a = draft.lean === "eater" ? APPRAISAL_MAP[EATER_TOOL_FOR[id]] : null;
+            return (
+              <Choice key={id} on={draft.toolId === id} sub={a ? `${a.description}得意：${a.good}` : `${t.line}得意：${t.good}`} onClick={() => finish({ ...draft, toolId: id }, "tool")}>
+                {a ? `${a.emoji} ${a.name}` : `${TOOL_MAP[id]?.emoji} ${TOOL_MAP[id]?.name}`}
+              </Choice>
+            );
+          })}
         </div>
       </div>
     );

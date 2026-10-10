@@ -1,3 +1,4 @@
+import { dishSHU, shuLabel } from "../game/food/scoville";
 import { useState } from "react";
 import type { Dish } from "../types";
 import { formatDays } from "../game/process/simulate";
@@ -56,6 +57,7 @@ export function DishDetail({ dish, onRename, onTogglePublic, onDerive, showMeta 
             <RankBadge rank={dish.rank} />
             <span className="text-2xl font-bold tabular-nums">{dish.total}</span>
             <span className="text-xs text-stone-500">総合点</span>
+            {dishSHU(dish) > 0 && <span className="rounded bg-rose-100 px-1.5 py-0.5 text-xs font-semibold text-rose-800" data-testid="dish-shu">{shuLabel(dishSHU(dish))}</span>}
           </div>
         </div>
       </div>

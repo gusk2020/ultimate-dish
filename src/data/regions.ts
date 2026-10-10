@@ -56,7 +56,8 @@ export const LOCATION_MAP: Record<string, LocationDef> = Object.fromEntries(LOCA
 /** Everything the village has always sold, at the base (Phase 1-6) price. */
 const HOME_GOODS = [
   ...INGREDIENTS.filter((i) => i.source === "farm" || i.source === "hunt" || i.source === "market").map((i) => i.id),
-  ...SPICES.map((s) => s.id),
+  // Phase 11: wild-only peppers (rarity 9+) are found on expeditions, not in markets.
+  ...SPICES.filter((s) => s.rarity < 9).map((s) => s.id),
 ];
 
 const profile = (p: RegionalCuisineProfile) => p;

@@ -22,6 +22,11 @@ export interface PlayerProgression {
   /** Phase 10: the eater's school (流派) and skill xp. */
   eaterSchoolId: string;
   eaterSkills: Partial<Record<import("../data/eaterSchools").EaterSkillId, number>>;
+  /** Phase 11: appraisal tools (食べる側の魔導具). */
+  eaterTools: string[];
+  /** Phase 11: body adaptation — the most portions and the hottest dish ever finished. */
+  maxPortions: number;
+  maxSHU: number;
 }
 
 /** Phase 10: how often the player has faced each opponent (maker battles and eater challenges). */
@@ -70,6 +75,8 @@ export interface CodexEntry {
   parentKeys: string[];
   publicId?: string;
   lastDishId?: string;
+  /** Phase 11: what happened with this dish, for the 図鑑 (viewing / replay). */
+  events?: { day: number; text: string }[];
 }
 
 export type PublicStage = "guild" | "nation" | "region" | "civilization" | "world";

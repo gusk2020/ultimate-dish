@@ -14,6 +14,8 @@ import { groupNotes, noteItems, searchNotes, STATUS_ICON, VIEW_LABEL, type NoteI
 import { buyTakeaway, dineOut, isOpen, offersFor, offersHere } from "../game/food/prepared";
 import { locationOf } from "../game/travel/market";
 import { decorate } from "./DiningPage";
+import { CodexGallery } from "../components/CodexGallery";
+import { recipeSHU, shuLabel } from "../game/food/scoville";
 
 function DishList() {
   const { state, dispatch } = useGame();
@@ -82,7 +84,8 @@ function EatOptions({ item, onEat }: { item: NoteItem; onEat: (dish: Dish, stock
   const inn = item.recipeId ? offersHere(w, "inn").filter((o) => o.recipeId === item.recipeId) : [];
   const market = item.recipeId ? offersHere(w, "market").filter((o) => o.recipeId === item.recipeId) : [];
   const elsewhere = item.recipeId ? offersFor(item.recipeId).filter((o) => o.locationId !== locationOf(w).id) : [];
-  const canCook = item.knowledge !== "unknown";
+  // Phase 11: an eater has no pantry or kitchen, so cooking it yourself is a cook's option only.
+  const canCook = !eater && item.knowledge !== "unknown";
   const nothing = !stocks.length && !inn.length && !market.length && !canCook;
   return (
     <div className="card space-y-1.5 text-sm" data-testid="eat-options">
@@ -125,7 +128,7 @@ function EatOptions({ item, onEat }: { item: NoteItem; onEat: (dish: Dish, stock
       ))}
       {canCook && item.recipeId && (
         <button className="btn-secondary w-full text-sm" onClick={() => dispatch({ type: "cookRecipe", recipeId: item.recipeId! })}>
-          🍳 自分で作る{eater ? "（食べる側の主な成長にはならない）" : ""}
+          🍳 自分で作る
         </button>
       )}
       {nothing && <p className="text-xs text-rose-700">この土地では入手できない</p>}
@@ -174,6 +177,7 @@ function NoteDetail({ item, onBack }: { item: NoteItem; onBack: () => void }) {
             <div className="text-xs">技法：{recipe.steps.map((s) => METHOD_MAP[s.methodId]?.name ?? s.methodId).join("・")}</div>
           </>
         )}
+        {recipe && recipeSHU(recipe) > 0 && <div className="text-xs font-semibold text-rose-800">辛さ：{shuLabel(recipeSHU(recipe))}</div>}
         <div className="text-xs">レシピ知識：{knows ? KNOWLEDGE_JA[item.knowledge] : "作り方は知らない"}</div>
         <div className="text-xs">作った {entry?.timesCooked ?? 0}回・食べた {entry?.timesEaten ?? 0}回・図鑑 {entry ? "記録あり" : "なし"}・公開 {item.status.public ? "公開中" : "非公開"}</div>
       </div>
@@ -208,7 +212,7 @@ function NoteDetail({ item, onBack }: { item: NoteItem; onBack: () => void }) {
   );
 }
 
-type Section = "notes" | "public" | "dishes";
+type Section = "notes" | "codex" | "public" | "dishes";
 
 /** 自分のノート: the one entrance to every dish — search, switch the view, open a folder, open a dish. */
 export function Dex() {
@@ -227,13 +231,14 @@ export function Dex() {
   const inFolder = folder ? groups.find((g) => g.folder === folder)?.items ?? [] : [];
   return (
     <div>
-      <div className="mx-4 mt-3 grid grid-cols-3 gap-1 rounded-xl bg-stone-200 p-1 text-xs">
-        {([["notes", "📖 自分のノート"], ["public", "🌐 公開料理"], ["dishes", "🍽 一皿の記録"]] as [Section, string][]).map(([s, l]) => (
+      <div className="mx-4 mt-3 grid grid-cols-4 gap-1 rounded-xl bg-stone-200 p-1 text-[11px]">
+        {([["notes", "📖 ノート"], ["codex", "📚 図鑑"], ["public", "🌐 公開"], ["dishes", "🍽 一皿"]] as [Section, string][]).map(([s, l]) => (
           <button key={s} className={`min-h-9 rounded-lg ${section === s ? "bg-white font-bold shadow" : "text-stone-600"}`} onClick={() => setSection(s)}>{l}</button>
         ))}
       </div>
       {section === "public" && <PublicTab />}
       {section === "dishes" && <DishList />}
+      {section === "codex" && <CodexGallery />}
       {section === "notes" && (
         <div className="space-y-2 p-4">
           <input

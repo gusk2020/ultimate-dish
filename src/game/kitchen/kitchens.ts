@@ -7,7 +7,7 @@ import type { World } from "../world";
 // the inn's shared kitchen, or a kitchen a host provides for an event (free, that event only).
 // Fewer limits + more room + bigger batches = a higher price.
 
-export type KitchenKind = "inn" | "guild" | "event";
+export type KitchenKind = "inn" | "guild" | "event" | "home" | "shop" | "portable";
 
 export interface KitchenFacility {
   id: string;
@@ -23,6 +23,8 @@ export interface KitchenFacility {
   /** Chance of being free in a given part of the day. */
   availability: number;
   note: string;
+  /** Phase 11: MP spent each time it is used (magic kitchens). */
+  mpCost?: number;
 }
 
 const BASIC = ["cut", "boil", "grill", "saute", "reduce", "steam"];
@@ -40,7 +42,25 @@ export const EVENT_KITCHEN: KitchenFacility = {
   note: "依頼・勝負の主催者が用意した厨房。使用料なし・この催しのためだけ",
 };
 
-export const KITCHEN_MAP: Record<string, KitchenFacility> = Object.fromEntries([...KITCHENS, EVENT_KITCHEN].map((k) => [k.id, k]));
+/** Phase 11: kitchens you own — at home, in your shop, or carried with you. Free to use. */
+export const OWNED_KITCHENS: KitchenFacility[] = [
+  { id: "home-kitchen", name: "自宅厨房", emoji: "🏠", kind: "home", allowedMethods: [...BASIC, "fry", "smoke", "pickle", "dry"], capacity: 10, toolSupport: true, cost: 0, availability: 1, note: "自分の家の厨房。いつでも空いている" },
+  { id: "shop-kitchen", name: "店の厨房", emoji: "🏪", kind: "shop", allowedMethods: "all", capacity: 40, toolSupport: true, cost: 0, availability: 1, note: "自分の店の本格的な厨房" },
+  { id: "travel-kit", name: "旅用簡易キッチン", emoji: "🎒", kind: "portable", allowedMethods: ["grill", "boil"], capacity: 2, toolSupport: false, cost: 0, availability: 1, note: "持ち歩ける。焼く・煮るだけ、少量のみ" },
+  { id: "cart-kitchen", name: "荷車厨房", emoji: "🛒", kind: "portable", allowedMethods: [...BASIC, "fry"], capacity: 6, toolSupport: true, cost: 0, availability: 1, note: "旅先でも使える。維持費がかかる" },
+  { id: "compact-magic", name: "コンパクト魔導厨房", emoji: "💠", kind: "portable", allowedMethods: "all", capacity: 3, toolSupport: true, cost: 0, availability: 1, mpCost: 8, note: "小さいがほぼ全工程が可能。使うたびにMPを大きく使う" },
+  { id: "magic-cart", name: "魔導厨房車", emoji: "🚚", kind: "portable", allowedMethods: "all", capacity: 20, toolSupport: true, cost: 0, availability: 1, note: "走る厨房。高価で維持費も高い" },
+];
+
+export const KITCHEN_MAP: Record<string, KitchenFacility> = Object.fromEntries([...KITCHENS, EVENT_KITCHEN, ...OWNED_KITCHENS].map((k) => [k.id, k]));
+
+/** Owned kitchens usable where the player is now. */
+export function ownedKitchensHere(w: World): KitchenFacility[] {
+  const here = locationOf(w).id;
+  const p = w.property ?? { houses: [], shops: [], portableKitchens: [] };
+  return OWNED_KITCHENS.filter((k) =>
+    k.kind === "home" ? p.houses.includes(here) : k.kind === "shop" ? p.shops.includes(here) : p.portableKitchens.includes(k.id));
+}
 
 export interface KitchenState {
   /** Paid for this part of the day at this place. */
@@ -59,6 +79,7 @@ export function availabilityFor(w: World, k: KitchenFacility): number {
 /** Free or taken — fixed for a given place, kitchen and part of the day (no re-rolling by tapping). */
 export function isAvailable(w: World, k: KitchenFacility): boolean {
   if (k.kind === "event") return !!kitchenStateOf(w).event;
+  if (k.kind === "home" || k.kind === "shop" || k.kind === "portable") return ownedKitchensHere(w).some((o) => o.id === k.id);
   if (isRentedHere(w, k.id)) return true;
   const roll = createRng(seedFrom("kitchen", locationOf(w).id, k.id, slotIndex(w.day)))();
   return roll < availabilityFor(w, k);
@@ -71,7 +92,7 @@ export function isRentedHere(w: World, kitchenId: string): boolean {
 
 /** Kitchens offered where the player is: the inn and the guild, plus a host's kitchen during an event. */
 export function kitchensHere(w: World): KitchenFacility[] {
-  return kitchenStateOf(w).event ? [EVENT_KITCHEN, ...KITCHENS] : KITCHENS;
+  return [...(kitchenStateOf(w).event ? [EVENT_KITCHEN] : []), ...ownedKitchensHere(w), ...KITCHENS];
 }
 
 export interface CookNeeds {
@@ -100,6 +121,7 @@ export function kitchenStatus(w: World, k: KitchenFacility, needs: CookNeeds): {
   if (!isAvailable(w, k)) return { status: "taken", problems: ["今日は埋まっている（次の時間帯なら空くかも）"] };
   if (problems.length) return { status: "unsuitable", problems };
   if (!isRentedHere(w, k.id) && w.chef.money < k.cost) return { status: "money", problems: ["お金が足りない"] };
+  if (k.mpCost && w.chef.mp < k.mpCost) return { status: "money", problems: [`MPが足りない（${k.mpCost}必要）`] };
   return { status: "ok", problems: [] };
 }
 
@@ -114,7 +136,9 @@ export function rentKitchen(w: World, kitchenId: string, needs: CookNeeds): Worl
   if (!k) return "そんな厨房はない";
   const st = kitchenStatus(w, k, needs);
   if (st.status !== "ok") return st.problems.join("、");
-  if (k.kind === "event" || isRentedHere(w, k.id)) return w;
+  if (k.mpCost) return { ...w, chef: { ...w.chef, mp: w.chef.mp - k.mpCost } };
+  if (k.kind !== "inn" && k.kind !== "guild") return w;
+  if (isRentedHere(w, k.id)) return w;
   return {
     ...w,
     chef: { ...w.chef, money: Math.round((w.chef.money - k.cost) * 100) / 100 },

@@ -186,9 +186,9 @@ describe("rating: 最低条件 and 突出ボーナス", () => {
 });
 
 describe("data", () => {
-  it("has exactly one quality spice and one body spice", () => {
-    expect(SPICES).toHaveLength(2);
-    expect(SPICES.filter((x) => x.kind === "quality")).toHaveLength(1);
+  it("has the original quality and body spice (Phase 11 adds hot peppers, all quality, all with SHU)", () => {
+    expect(SPICES.slice(0, 2).map((x) => x.kind)).toEqual(["quality", "body"]);
     expect(SPICES.filter((x) => x.kind === "body")).toHaveLength(1);
+    expect(SPICES.slice(2).every((x) => x.kind === "quality" && (x.scovilleSHU ?? 0) > 0)).toBe(true);
   });
 });

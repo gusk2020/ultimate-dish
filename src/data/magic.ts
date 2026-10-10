@@ -8,12 +8,28 @@ export const SPICES: Spice[] = [
     tasteDelta: { aroma: 2.5, umami: 1.5, salty: 1 }, body: {}, crave: 8,
     rarity: 6, price: 4,
     description: "火山地帯の胡椒。香りとうま味を強め、やみつきの刺激を与える",
+    scovilleSHU: 30000,
   },
   {
     id: "iyashi", name: "癒樹の根", emoji: "🪵", kind: "body",
     tasteDelta: { bitter: 1, aroma: 0.5 }, body: { fatigue: 6, condition: 2 }, crave: 0,
     rarity: 4, price: 3,
     description: "煎じると疲労回復、体調も少し整う。やや苦い",
+  },
+  // Phase 11: hot peppers in three grades (scovilleSHU). Breeding / wild finds can add more later.
+  {
+    id: "akagarashi", name: "赤芥子", emoji: "🌶", kind: "quality",
+    tasteDelta: { aroma: 1, salty: 0.5 }, body: { condition: 1 }, crave: 4,
+    rarity: 2, price: 2,
+    description: "どこの市場にもある赤い辛子。ほどよい辛さ",
+    scovilleSHU: 5000,
+  },
+  {
+    id: "ryuenshou", name: "竜炎椒", emoji: "🐉", kind: "quality",
+    tasteDelta: { aroma: 3, umami: 1 }, body: { fatigue: 2 }, crave: 14,
+    rarity: 9, price: 18,
+    description: "竜の棲む火山にだけ自生する野生種。口の中が燃える",
+    scovilleSHU: 150000,
   },
 ];
 

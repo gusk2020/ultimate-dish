@@ -2,6 +2,7 @@ import { maxMP, maxStamina } from "../chef/stats";
 import { endDay } from "../commerce/day";
 import { consume } from "../inventory/inventory";
 import { seedFrom } from "../rng";
+import { nightlyFees, nightlyStorage } from "../property/property";
 import { locationOf } from "../travel/market";
 import { advanceTime, type World } from "../world";
 import { nextPartStart, partOf, PART_LABEL, slotIndex } from "./calendar";
@@ -76,6 +77,8 @@ export function advancePart(w: World): World {
   let world: World;
   if (partOf(w.day).part === 2) {
     world = endDay(w, seedFrom("sleep", from)).world;
+    // Phase 11: the night also keeps (or costs) what you store and own.
+    world = nightlyFees(nightlyStorage(world)).world;
     world = { ...world, daily: { ...dailyOf(world), lastNote: "眠って朝になった（体力・MPが回復）" } };
   } else {
     world = advanceTime(w, nextPartStart(w.day) - w.day);

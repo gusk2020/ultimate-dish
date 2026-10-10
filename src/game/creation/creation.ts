@@ -10,6 +10,7 @@ import type { FoodStoryAnswers } from "../eating/profile";
 import { chooseCompanion, declineCompanion, generateCandidates } from "../social/companion";
 import type { World } from "../world";
 import { NEW_GAME_DAY } from "../time/calendar";
+import { EATER_TOOL_FOR } from "../../data/eaterTools";
 
 // キャラクター作成: a draft the creation screens fill in, the order of its steps, and the one
 // function that turns it into the starting world. Nothing reaches the normal game until then.
@@ -175,9 +176,15 @@ export function finalizeCreation(base: World, d: CreationDraft): World | string 
     if (!c) return "相棒が見つからない";
     // The companion route starts without a magic tool: the two are an either / or.
     w = chooseCompanion({ ...w, tools: [] }, c);
+  } else if (d.lean === "eater") {
+    // Phase 11: an eater carries an appraisal tool, never a cooking tool.
+    w = declineCompanion({ ...w, tools: [], progression: { ...w.progression, eaterTools: [EATER_TOOL_FOR[d.toolId ?? ""]].filter(Boolean) } });
   } else {
     w = declineCompanion({ ...w, tools: w.tools.filter((t) => t.toolId === d.toolId) });
   }
+  // Phase 11: an eater keeps no ingredients (and no cooking tools on the companion route either).
+  if (d.lean === "eater") w = { ...w, inventory: [], tools: [] };
+  w = { ...w, migrations: { ...(w.migrations ?? {}), phase11: true } };
 
   const identity: PlayerIdentity = {
     creationCompleted: true,

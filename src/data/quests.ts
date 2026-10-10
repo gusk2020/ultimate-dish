@@ -1,5 +1,6 @@
 import type { Quest } from "../types";
 import { INGREDIENT_MAP } from "./ingredients";
+import { scovilleOf } from "../game/food/scoville";
 
 export const QUESTS: Quest[] = [
   {
@@ -112,6 +113,15 @@ export const QUESTS: Quest[] = [
     conditions: [{ axis: "nutrition", weight: 0.6, min: 60 }, { axis: "deliciousness", weight: 0.4 }],
     passScore: 64, minExperience: 55,
     successText: "「体の芯から温まる……」", failText: "「もう少し力の出るものがいいね」",
+  },
+  // Phase 11: a heat request (Scoville).
+  {
+    id: "rq-harbor-spicy", title: "船乗りの激辛料理", client: "漁師頭マレ", eaterId: "mare", locationId: "harbor",
+    request: "寒い海で体を燃やす、とびきり辛い一皿を作ってくれ。10,000 SHUは欲しい。",
+    conditions: [{ axis: "craveability", weight: 0.5, min: 50 }, { axis: "deliciousness", weight: 0.5 }],
+    passScore: 60, minExperience: 50,
+    requirement: { label: "10,000 SHU以上（辛味の香辛料を使う）", test: (r) => scovilleOf([...r.ingredientIds, ...r.steps.filter((s) => s.kind === "spice").map((s) => s.id)]) >= 10000 },
+    successText: "マレは汗だくで笑った。「これだ、これで海でも凍えねえ！」", failText: "「辛さが足りねえ、まだ凍える」",
   },
 ];
 
