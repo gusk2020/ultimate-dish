@@ -1,4 +1,6 @@
 import type { PlayerProgression } from "../../types/codex";
+import type { EaterSkillId } from "../../data/eaterSchools";
+import { addSkillXp, eaterSkillLevel, eatingSkillXp } from "./skills";
 import { RANK_ORDER, rankOf } from "../evaluation/rating";
 import { codexKeyOf, progressionOf, recordEatenEntry, type CodexDish } from "../codex/codex";
 import { locationOf } from "../travel/market";
@@ -57,12 +59,23 @@ export function eatXp(w: World, dish: CodexDish): { xp: number; reasons: string[
   return { xp: Math.max(1, Math.round(xp * factor)), reasons };
 }
 
-/** Eating a dish: eater xp, table experience, and a codex entry. No recipe knowledge is granted. */
-export function recordEaten(w: World, dish: CodexDish, origin?: string): { world: World; gain: EatGain } {
-  const { xp, reasons } = eatXp(w, dish);
+export const isEater = (w: Pick<World, "identity">) => w.identity?.lean === "eater";
+
+/**
+ * Eating a dish on purpose (実食): a codex entry and, for 食べる側 only, eater xp, table experience
+ * and eater skill xp. No recipe knowledge is granted. Routine meals never come through here.
+ */
+export function recordEaten(w: World, dish: CodexDish, origin?: string, extraSkills: Partial<Record<EaterSkillId, number>> = {}): { world: World; gain: EatGain } {
   const key = codexKeyOf(dish);
+  if (!isEater(w)) {
+    // 作る側: the dish is recorded, but eating is not how a cook grows.
+    const rec = recordEatenEntry(w, dish, origin ?? `${locationOf(w).shortName}で食べた`);
+    return { world: rec.world, gain: { xp: 0, reasons: [], codexNew: rec.isNew, codexKey: key } };
+  }
+  const { xp, reasons } = eatXp(w, dish);
   const region = locationOf(w).id;
-  const p = addExperience(progressionOf(w), dish, region);
+  const p0 = addExperience(progressionOf(w), dish, region);
+  const p = addSkillXp(p0, eatingSkillXp(p0, dish, extraSkills));
   const counted = { ...p, eatenCounts: { ...p.eatenCounts, [key]: (p.eatenCounts[key] ?? 0) + 1 } };
   const withP = gainEaterXp({ ...w, progression: counted }, xp);
   const rec = recordEatenEntry(withP, dish, origin ?? `${locationOf(w).shortName}で食べた`);
@@ -72,7 +85,7 @@ export function recordEaten(w: World, dish: CodexDish, origin?: string): { world
 /** 食レポ執筆料: a written report pays the eater a little and grows them. */
 export function reportFee(w: World): number {
   if (w.identity?.lean !== "eater") return 0;
-  return 2 + progressionOf(w).eaterLevel;
+  return 2 + progressionOf(w).eaterLevel + eaterSkillLevel(progressionOf(w), "report");
 }
 
 export function roleLevelLabel(w: World): string {

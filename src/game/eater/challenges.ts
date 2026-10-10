@@ -7,8 +7,12 @@ import { cookRivalDish, themeFit } from "../battle/battle";
 import { maxStamina } from "../chef/stats";
 import { progressionOf } from "../codex/codex";
 import { createRng, seedFrom } from "../rng";
-import { advanceTime, type World } from "../world";
+import type { World } from "../world";
+import { completeAction } from "../time/daily";
+import { recordOpponent } from "../battle/rotation";
 import { addExperience, gainEaterXp, recordEaten } from "./progression";
+import { eaterSchoolOf, eaterSkillLevel } from "./skills";
+import type { EaterSkillId } from "../../data/eaterSchools";
 import type { DishCore } from "../cooking/buildDish";
 
 // 食べる側の依頼: 食べ比べ・大食い・激辛・審査員. Every truth comes from a dish that was really
@@ -32,59 +36,123 @@ export interface EaterQuestDef {
   items?: JudgeItem[];
   target?: number;
   reward: { money: number; xp: number; reputation: number };
+  /** Phase 10: 勝負 (a contest) or 依頼 (a request), and its label (品評・試食・名物選定…). */
+  board: "battle" | "request";
+  label: string;
+  /** Where it is offered (absent = the home village). */
+  locationId?: string;
+  /** Counts as facing the cook (rival) — subject to the 3-match rotation. */
+  rotates?: boolean;
 }
 
 const theme = (label: string, axes: Partial<Record<Axis, number>>, tags: string[]): BattleConditions => ({ theme: { label, axes, tags } });
 
 export const EATER_QUESTS: EaterQuestDef[] = [
   {
-    id: "eq-pest", kind: "compare", title: "猪と兎の食べ比べ", client: "農夫ガルド", from: "害獣料理",
+    id: "eq-pest", board: "request", label: "試食", kind: "compare", title: "猪と兎の食べ比べ", client: "農夫ガルド", from: "害獣料理",
     blurb: "畑を荒らす猪と兎、どっちを料理すれば村が喜ぶか。食べ比べて決めてくれ。",
     rivalId: "gald", recipeIds: ["rabbit-stew", "boar-herb-roast"],
     conditions: theme("畑仕事のあとのがっつり料理", { deliciousness: 1, craveability: 0.8 }, ["meat", "worker"]),
     reward: { money: 15, xp: 25, reputation: 2 },
   },
   {
-    id: "eq-nutrition", kind: "compare", title: "滋養料理の評価", client: "母エルサ", from: "栄養改善",
+    id: "eq-nutrition", board: "request", label: "品評", kind: "compare", title: "滋養料理の評価", client: "母エルサ", from: "栄養改善",
     blurb: "体の弱い子に食べさせたい。どちらが体にいいか、食べて確かめてほしい。",
     rivalId: "sigurd", recipeIds: ["mushroom-porridge", "bean-wheat-soup"],
     conditions: theme("体を養うやさしい一皿", { nutrition: 1, deliciousness: 0.5 }, ["healthy", "soup"]),
     reward: { money: 18, xp: 28, reputation: 2 },
   },
   {
-    id: "eq-meibutsu", kind: "compare", title: "名物候補の食べ比べ", client: "ヨハン村長", from: "村の名物",
+    id: "eq-meibutsu", board: "request", label: "名物選定", kind: "compare", title: "名物候補の食べ比べ", client: "ヨハン村長", from: "村の名物",
     blurb: "村の名物にする一皿を選びたい。食べ比べて、村らしいほうを教えてくれ。",
     rivalId: "gald", recipeIds: ["bean-wheat-soup", "boar-herb-roast"],
     conditions: theme("旅人に出せる村の名物", { culture: 1, deliciousness: 0.8 }, ["family", "staple"]),
     reward: { money: 20, xp: 30, reputation: 3 },
   },
   {
-    id: "eq-bigeat", kind: "bigEater", title: "収穫祭の大食い", client: "収穫祭の世話役", from: "収穫祭",
+    id: "eq-bigeat", board: "battle", label: "大食い", kind: "bigEater", title: "収穫祭の大食い", client: "収穫祭の世話役", from: "収穫祭",
     blurb: "豆と麦のスープを6杯食べきれば賞金。無理は禁物、途中でやめてもいい。",
     rivalId: "gald", recipeIds: ["bean-wheat-soup"], target: 6,
     conditions: theme("大食い", { deliciousness: 1 }, ["soup"]),
     reward: { money: 25, xp: 30, reputation: 2 },
   },
   {
-    id: "eq-spicy", kind: "spicy", title: "焔胡椒の激辛勝負", client: "酒場の亭主", from: "酒場の名物",
+    id: "eq-spicy", board: "battle", label: "激辛", kind: "spicy", title: "焔胡椒の激辛勝負", client: "酒場の亭主", from: "酒場の名物",
     blurb: "焔胡椒をたっぷり使った煮込み。辛さを選んで完食できれば賞金。",
     rivalId: "gald", recipeIds: ["rabbit-stew"],
     conditions: theme("激辛", { craveability: 1 }, ["meat"]),
     reward: { money: 10, xp: 10, reputation: 1 },
   },
   {
-    id: "eq-judge-trial", kind: "judge", title: "腕試しの審査員", client: "ヨハン村長", from: "料理勝負",
+    id: "eq-judge-trial", board: "battle", label: "審査勝負", rotates: true, kind: "judge", title: "腕試しの審査員", client: "ヨハン村長", from: "料理勝負",
     blurb: "ガルドの兎の煮込みを審査してほしい。火入れ・下処理・テーマを○×で。",
     rivalId: "gald", recipeIds: ["rabbit-stew"], items: ["heat", "prep", "theme"],
     conditions: theme("村の家庭の味", { deliciousness: 1, culture: 0.6, costPerformance: 0.4 }, ["deli", "staple", "family", "soup"]),
     reward: { money: 15, xp: 25, reputation: 2 },
   },
   {
-    id: "eq-judge-harvest", kind: "judge", title: "収穫祭の審査員", client: "収穫祭の世話役", from: "収穫祭の一皿勝負",
+    id: "eq-judge-harvest", board: "battle", label: "審査勝負", rotates: true, kind: "judge", title: "収穫祭の審査員", client: "収穫祭の世話役", from: "収穫祭の一皿勝負",
     blurb: "シグルドの燻製を審査する。火入れ・香り・保存の出来を見極めてほしい。",
     rivalId: "sigurd", recipeIds: ["smoked-boar"], items: ["heat", "aroma", "preserve"],
     conditions: theme("冬に備える一皿", { deliciousness: 1, sustainability: 0.6 }, ["preserved", "meat"]),
     reward: { money: 22, xp: 32, reputation: 3 },
+  },
+  // Phase 10: a tasting contest, the next cook in the rotation, and the other places.
+  {
+    id: "eq-compare-duel", board: "battle", label: "食べ比べ勝負", rotates: true, kind: "compare", title: "燻製と粥の食べ比べ勝負", client: "北方の猟師シグルド", from: "収穫祭",
+    blurb: "俺の燻製と粥、冬に備えるならどっちだ？ 食べ比べて当ててみろ。",
+    rivalId: "sigurd", recipeIds: ["smoked-boar", "mushroom-porridge"],
+    conditions: theme("冬に備える保存の効く一皿", { sustainability: 1, deliciousness: 0.6 }, ["preserved"]),
+    reward: { money: 18, xp: 28, reputation: 2 },
+  },
+  {
+    id: "eq-judge-berta", board: "battle", label: "審査勝負", rotates: true, kind: "judge", title: "宿の看板料理の審査", client: "ヨハン村長", from: "宿の看板料理勝負",
+    blurb: "ベルタの料理を審査してほしい。火入れ・下処理・テーマを見極めて。",
+    rivalId: "berta", recipeIds: ["rabbit-stew"], items: ["heat", "prep", "theme"],
+    conditions: theme("宿の看板になる一皿", { deliciousness: 1, costPerformance: 0.6, culture: 0.4 }, ["deli", "family", "staple"]),
+    reward: { money: 20, xp: 30, reputation: 3 },
+  },
+  {
+    id: "eq-river-compare", board: "request", label: "試食", locationId: "rivertown", kind: "compare", title: "川魚の食べ比べ", client: "渡し守ハンス", from: "川魚料理",
+    blurb: "串焼きと酢締め、渡しの客に出すならどっちがいい？",
+    rivalId: "milo", recipeIds: ["river-grilled-fish", "river-vinegar-fish"],
+    conditions: theme("旅人がすぐ食べられる川魚", { deliciousness: 1, costPerformance: 0.6 }, ["meat", "light"]),
+    reward: { money: 18, xp: 30, reputation: 2 },
+  },
+  {
+    id: "eq-river-judge", board: "battle", label: "審査勝負", rotates: true, locationId: "rivertown", kind: "judge", title: "市場の品評審査", client: "市場の世話役", from: "渡し場の早仕事勝負",
+    blurb: "ミロの旅人の汁麺を審査してくれ。火入れ・下処理・テーマ。",
+    rivalId: "milo", recipeIds: ["river-travelers-noodles"], items: ["heat", "prep", "theme"],
+    conditions: theme("旅人の早い一皿", { deliciousness: 1, costPerformance: 0.8 }, ["staple", "light"]),
+    reward: { money: 22, xp: 34, reputation: 3 },
+  },
+  {
+    id: "eq-harbor-taste", board: "request", label: "試食", locationId: "harbor", kind: "compare", title: "異国料理の試食", client: "漁師頭マレ", from: "港の魚介料理",
+    blurb: "香辛料の貝と魚介の煮込み、港の名物にするならどっちだ？",
+    rivalId: "carme", recipeIds: ["coast-spiced-shells", "coast-seafood-stew"],
+    conditions: theme("港の名物になる魚介", { deliciousness: 1, culture: 0.6 }, ["soup", "snack"]),
+    reward: { money: 24, xp: 34, reputation: 3 },
+  },
+  {
+    id: "eq-harbor-judge", board: "battle", label: "審査勝負", rotates: true, locationId: "harbor", kind: "judge", title: "鮮魚料理の審査", client: "港の酒場の主人", from: "港の魚介勝負",
+    blurb: "カルメの魚介煮込みを審査してくれ。火入れ・香り・テーマ。",
+    rivalId: "carme", recipeIds: ["coast-seafood-stew"], items: ["heat", "aroma", "theme"],
+    conditions: theme("港の魚介", { deliciousness: 1, rarity: 0.4, culture: 0.4 }, ["soup", "snack"]),
+    reward: { money: 26, xp: 38, reputation: 3 },
+  },
+  {
+    id: "eq-highland-compare", board: "request", label: "品評", locationId: "highland", kind: "compare", title: "高地料理の食べ比べ", client: "山羊飼いイルゼ", from: "乳と燻製の一皿",
+    blurb: "チーズ粥と山菜炒め、冬の子供に食べさせるならどっちかしら。",
+    rivalId: "olga", recipeIds: ["highland-cheese-porridge", "highland-greens-nuts"],
+    conditions: theme("冬の子供のための滋養", { nutrition: 1, deliciousness: 0.6 }, ["healthy"]),
+    reward: { money: 22, xp: 34, reputation: 2 },
+  },
+  {
+    id: "eq-highland-judge", board: "battle", label: "審査勝負", rotates: true, locationId: "highland", kind: "judge", title: "保存食の審査", client: "集落の長", from: "冬越しの滋養勝負",
+    blurb: "オルガの岩山羊の燻製を審査してほしい。火入れ・香り・保存。",
+    rivalId: "olga", recipeIds: ["highland-smoked-ibex"], items: ["heat", "aroma", "preserve"],
+    conditions: theme("冬を越す保存食", { sustainability: 1, deliciousness: 0.6 }, ["preserved", "meat"]),
+    reward: { money: 26, xp: 38, reputation: 3 },
   },
 ];
 
@@ -99,11 +167,18 @@ export function questSeed(w: World, id: string): number {
 }
 
 /** How reliably the eater perceives a dish: level plus what they have met of its ingredients and methods. */
-export function perceptionAccuracy(w: World, dish: Pick<DishCore, "recipe" | "profile">): number {
+const ITEM_SKILL: Record<JudgeItem, EaterSkillId> = { heat: "judgeHeat", prep: "judgePrep", aroma: "smell", theme: "culture", preserve: "judgeFerment" };
+
+/**
+ * How reliably the eater perceives a dish: level plus what they have met of its ingredients and
+ * methods; for one judging item, also that item's eater skill and the school's specialty.
+ */
+export function perceptionAccuracy(w: World, dish: Pick<DishCore, "recipe" | "profile">, item?: JudgeItem): number {
   const p = progressionOf(w);
   const met = [...dish.recipe.ingredientIds.map((id) => p.experience.ingredients[id] ?? 0), ...dish.profile.methodIds.map((id) => p.experience.methods[id] ?? 0)];
   const familiarity = Math.min(10, met.reduce((a, b) => a + Math.min(3, b), 0));
-  return clamp(0.55 + 0.03 * (p.eaterLevel - 1) + 0.025 * familiarity, 0.55, 0.95);
+  const skill = item ? 0.02 * eaterSkillLevel(p, ITEM_SKILL[item]) + (eaterSchoolOf(p).judgeBonus[item] ?? 0) : 0;
+  return clamp(0.55 + 0.03 * (p.eaterLevel - 1) + 0.025 * familiarity + skill, 0.55, 0.95);
 }
 
 export interface ChallengeOutcome {
@@ -114,12 +189,14 @@ export interface ChallengeOutcome {
   reputation: number;
 }
 
-function settle(w: World, def: EaterQuestDef, dishes: DishCore[], out: ChallengeOutcome, origin: string): World {
-  let world = advanceTime(w, 0.1);
-  for (const d of dishes) world = recordEaten(world, d, origin).world;
+function settle(w: World, def: EaterQuestDef, dishes: DishCore[], out: ChallengeOutcome, origin: string, skills: Partial<Record<EaterSkillId, number>> = {}): World {
+  let world = w;
+  dishes.forEach((d, i) => (world = recordEaten(world, d, origin, i === 0 ? skills : {}).world));
   const p = progressionOf(world);
   world = { ...world, progression: { ...p, questLog: [...(p.questLog ?? []), { questId: def.id, day: Math.floor(w.day) + 1, success: out.success }] } };
-  return gainEaterXp(world, out.xp, out.reputation, out.money);
+  if (def.rotates) world = recordOpponent(world, def.rivalId, out.success ? "win" : "loss");
+  // Phase 10: a challenge is a main action — one part of the day passes.
+  return completeAction(gainEaterXp(world, out.xp, out.reputation, out.money), w.day);
 }
 
 // ---------- 食べ比べ ----------
@@ -190,7 +267,8 @@ export interface BigEaterSession {
 
 export function eatingCapacity(w: World): number {
   const p = progressionOf(w);
-  return Math.round((4 + w.chef.stats.strength * 0.2 + (p.eaterLevel - 1) * 0.6 + Math.min(2, (p.questLog ?? []).filter((q) => q.questId === "eq-bigeat").length * 0.3)) * 10) / 10;
+  const bonus = eaterSkillLevel(p, "capacity") * 0.3 + eaterSchoolOf(p).capacityBonus;
+  return Math.round((4 + w.chef.stats.strength * 0.2 + (p.eaterLevel - 1) * 0.6 + bonus + Math.min(2, (p.questLog ?? []).filter((q) => q.questId === "eq-bigeat").length * 0.3)) * 10) / 10;
 }
 
 export function startBigEater(w: World, def: EaterQuestDef): BigEaterSession {
@@ -226,7 +304,7 @@ export function finishBigEater(w: World, s: BigEaterSession): { world: World; ou
   } else {
     out = { success: false, lines: [`${s.eaten}杯で自分から箸を置いた。無理をしない判断だ`], money: 3 * s.eaten, xp: 3 * s.eaten + 2, reputation: 0 };
   }
-  let world = settle(w, def, [s.dish], out, "大食い");
+  let world = settle(w, def, [s.dish], out, "大食い", { capacity: 2 * s.eaten });
   if (s.failed) world = { ...world, chef: { ...world.chef, stamina: Math.max(0, world.chef.stamina - Math.round(maxStamina(world.chef) * 0.2)) } };
   return { world, outcome: out };
 }
@@ -241,7 +319,7 @@ export const SPICE_LEVELS = [
 
 export function spiceTolerance(w: World): number {
   const p = progressionOf(w);
-  return p.spiceTolerance + (p.eaterLevel - 1) * 0.5 + w.chef.stats.strength * 0.05;
+  return p.spiceTolerance + (p.eaterLevel - 1) * 0.5 + w.chef.stats.strength * 0.05 + eaterSkillLevel(p, "spice") * 0.5 + eaterSchoolOf(p).spiceBonus;
 }
 
 export function spicyChance(w: World, level: number): number {
@@ -257,7 +335,7 @@ export function resolveSpicy(w: World, def: EaterQuestDef, level: number): { wor
   const out: ChallengeOutcome = ok
     ? { success: true, lines: [`辛さ「${SPICE_LEVELS[level - 1].label}」を完食！汗だくの勝利`], money: r.money * level, xp: r.xp + 8 * level, reputation: r.reputation * level }
     : { success: false, lines: ["途中で水に手が伸びた。口の中が火事で、少し体調を崩した"], money: 2 * level, xp: 4 + 2 * level, reputation: 0 };
-  let world = settle(w, def, [dish], out, "激辛勝負");
+  let world = settle(w, def, [dish], out, "激辛勝負", { spice: 5 * level });
   const p = progressionOf(world);
   world = { ...world, progression: { ...p, spiceTolerance: Math.round((p.spiceTolerance + (ok ? 1 : 0.5)) * 10) / 10 } };
   if (!ok) world = { ...world, chef: { ...world.chef, stamina: Math.max(0, world.chef.stamina - Math.round(maxStamina(world.chef) * 0.15)) } };
@@ -332,7 +410,7 @@ export function startJudge(w: World, def: EaterQuestDef): JudgeSession {
   const rng = createRng(seedFrom(seed, "judge-hint"));
   const items = (def.items ?? ["theme"]).map((item) => {
     const truth = judgeTruth(item, dish, def.conditions);
-    const perceived = rng() < accuracy ? truth : !truth;
+    const perceived = rng() < perceptionAccuracy(w, dish, item) ? truth : !truth;
     return { item, question: QUESTION[item](def.conditions), hint: HINT[item][perceived ? 0 : 1] };
   });
   return { questId: def.id, seed, dish, cook: rival.name, items, accuracy };
@@ -365,7 +443,8 @@ export function resolveJudge(w: World, s: JudgeSession, answers: Partial<Record<
       lines: [...lines, ...results.filter((x) => x.correction).map((x) => x.correction!), "観客から「審査が的外れだ」と苦情が出た。評判が下がった"],
     };
   // Experience grows either way: the eater has now really met this dish's ingredients and methods.
-  let world = settle(w, def, [s.dish], out, "審査");
+  const itemSkill = Object.fromEntries(s.items.map((x) => [ITEM_SKILL[x.item], 4]));
+  let world = settle(w, def, [s.dish], out, "審査", itemSkill);
   const p = progressionOf(world);
   world = { ...world, progression: addExperience(p, s.dish) };
   return { world, outcome: out };

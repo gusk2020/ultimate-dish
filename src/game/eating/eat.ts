@@ -1,7 +1,8 @@
 import type { TastingRecord, TastingResult } from "../../types/eating";
 import type { Rank } from "../../types";
 import { codexKeyOf, setOwnReport } from "../codex/codex";
-import { gainEaterXp, recordEaten, reportFee, type EatGain } from "../eater/progression";
+import { gainEaterXp, isEater, recordEaten, reportFee, type EatGain } from "../eater/progression";
+import { addSkillXp } from "../eater/skills";
 import { maxStamina } from "../chef/stats";
 import { eatPortion } from "../commerce/simpleCook";
 import type { World } from "../world";
@@ -33,7 +34,9 @@ export function eatAndTaste(
   // Phase 9: eating grows the eater and records the dish in 私の図鑑 — never its recipe.
   const stock = w.dishStock.find((s) => s.id === stockId);
   const eaten = recordEaten(ate, { ...dish, recipeId: dish.recipeId ?? stock?.recipeId ?? null }, stock?.cookedBy && stock.cookedBy[0] !== "player" ? "仲間の料理" : "自分の料理");
-  return { world: eaten.world, result, gain: eaten.gain };
+  // A real meal fills you up too (日常の空腹もリセット).
+  const world = eaten.world.daily ? { ...eaten.world, daily: { ...eaten.world.daily, hunger: 0 } } : eaten.world;
+  return { world, result, gain: eaten.gain };
 }
 
 let recordCounter = 0;
@@ -62,6 +65,7 @@ export function recordTasting(
   // Phase 9: the report becomes the codex entry's own report; an eater is paid a small writing fee.
   const key = codexKeyOf({ name: dish.name, recipeId: (dish as { recipeId?: string | null }).recipeId ?? null });
   world = setOwnReport(world, key, result.score, record.freeText || `${Math.round(result.score)}点の一皿`);
-  world = gainEaterXp(world, 3, 0, reportFee(w));
+  world = gainEaterXp(world, isEater(w) ? 3 : 0, 0, reportFee(w));
+  if (isEater(w)) world = { ...world, progression: addSkillXp(world.progression, { report: 4 }) };
   return { world, record };
 }

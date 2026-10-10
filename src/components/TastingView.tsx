@@ -6,6 +6,7 @@ import { eatAndTaste, recordTasting } from "../game/eating/eat";
 import { describePalate } from "../game/eating/profile";
 import { tastingReporter } from "../services/tastingReport";
 import { useGame } from "../state/GameContext";
+import { completeAction } from "../game/time/daily";
 import { reportFee, type EatGain } from "../game/eater/progression";
 
 const TONE = { good: "text-emerald-700", neutral: "text-stone-700", bad: "text-rose-700" };
@@ -42,7 +43,8 @@ export function TastingView({ dish, stockId, onClose }: { dish: Dish; stockId: s
             onClick={() => {
               const r = eatAndTaste(w, stockId, dish);
               if (typeof r === "string") return setMsg(r);
-              dispatch({ type: "setWorld", world: r.world });
+              // Phase 10: eating on purpose (実食) is a main action — one part of the day passes.
+              dispatch({ type: "setWorld", world: completeAction(r.world, w.day) });
               setResult(r.result);
               setGain(r.gain);
             }}
@@ -73,7 +75,7 @@ export function TastingView({ dish, stockId, onClose }: { dish: Dish; stockId: s
       <div className="text-xs text-stone-500">あなたの体験 {result.score}点（料理の絶対評価 {dish.total}点）</div>
       {gain && (
         <div className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">
-          📖 「私の図鑑」に記録された{gain.codexNew ? "（初めての料理）" : ""}・食べた経験 +{gain.xp}
+          📖 「私の図鑑」に記録された{gain.codexNew ? "（初めての料理）" : ""}{gain.xp > 0 ? `・食べた経験 +${gain.xp}` : "（作る側は食べても経験値にならない）"}
           {gain.reasons.length > 0 && <span className="block text-[11px] text-stone-600">{gain.reasons.join("・")}</span>}
           <span className="block text-[11px] text-stone-500">食べただけでは作り方（レシピ）は分からない</span>
         </div>

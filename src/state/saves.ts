@@ -18,7 +18,7 @@ export interface StorageLike {
   setItem(key: string, value: string): void;
 }
 
-export type PersistedState = Omit<GameState, "kitchenSeed" | "slotId" | "mode">;
+export type PersistedState = Omit<GameState, "kitchenSeed" | "slotId" | "mode" | "cookRecipeId">;
 
 export interface SlotSummary {
   name: string;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Dish } from "../types";
 import type { DishStock, FinishInput } from "../types/world";
 import { itemInfo } from "../data/items";
@@ -15,6 +15,9 @@ import type { CookingGains } from "../game/world";
 import type { LearningEvent } from "../types/learning";
 import { getRecipe, recipeStatus } from "../game/learning/recipeBook";
 import { withCodexImage } from "../game/codex/codex";
+import { afterCooking, KITCHEN_MAP, kitchenStatus, rentKitchen, suggestKitchen } from "../game/kitchen/kitchens";
+import { completeAction } from "../game/time/daily";
+import { KitchenPicker } from "../components/KitchenPicker";
 import { newCookingSeed } from "../game/rng";
 import { SKILL_MAP } from "../data/phase2";
 import { textGenerator } from "../services/textGeneration";
@@ -52,6 +55,21 @@ export function RecipeKitchen() {
   const [ideaId, setIdeaId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [tasting, setTasting] = useState(false);
+  // Phase 10: the rented kitchen, and when the cook started (for the time of day).
+  const [kitchenId, setKitchenId] = useState<string | null>(null);
+  const [startDay, setStartDay] = useState(0);
+  const [usedKitchen, setUsedKitchen] = useState<string | null>(null);
+  // A dish picked in the notebook arrives here.
+  useEffect(() => {
+    if (!state.cookRecipeId) return;
+    setRecipeId(state.cookRecipeId);
+    setToolId(null);
+    setMainId(PLAYER);
+    setSession(null);
+    setDone(null);
+    setPhase("plan");
+    dispatch({ type: "consumeCookRecipe" });
+  }, [state.cookRecipeId, dispatch]);
 
   const setWorld = (world: typeof w) => dispatch({ type: "setWorld", world });
   const reset = () => {
@@ -174,7 +192,8 @@ export function RecipeKitchen() {
                 ]);
                 const dish: Dish = { ...out.dish, description, image };
                 dispatch({ type: "addDish", dish });
-                setWorld(withCodexImage(out.world, dish));
+                // Phase 10: the cook takes (at least) one part of the day; an event kitchen is used up.
+                setWorld(completeAction(afterCooking(withCodexImage(out.world, dish), usedKitchen ?? ""), startDay));
                 setDone({ dish, stock: out.stock, gains: out.gains, learning: out.learning, name: recipe.name, coop: out.coop, mainId: session.team.mainId, codexNew: out.codexNew });
                 window.scrollTo({ top: 0 });
               }}
@@ -228,6 +247,9 @@ export function RecipeKitchen() {
 
   // ---------- Plan: portions, shortage, bulk buy ----------
   const custom = !PORTIONS.includes(portions);
+  const needs = { methodIds: recipe.steps.map((s) => s.methodId), portions, usesTool: !!toolId };
+  const picked = kitchenId && kitchenStatus(w, KITCHEN_MAP[kitchenId], needs).status === "ok" ? kitchenId : null;
+  const chosenKitchen = picked ?? suggestKitchen(w, needs)?.id ?? null;
   return (
     <div className="space-y-3">
       <button className="text-sm text-stone-500 underline" onClick={() => setRecipeId(null)}>← レシピ一覧</button>
@@ -337,13 +359,20 @@ export function RecipeKitchen() {
         {plan.stamina > w.chef.stamina && <div className="col-span-2 text-rose-700">⚠ 体力が足りない。無理をすると失敗しやすい</div>}
       </div>
 
+      <KitchenPicker needs={needs} value={chosenKitchen} onChange={setKitchenId} />
+
       {msg && <p className="text-xs text-red-700">{msg}</p>}
       {plan.problems.length > 0 && <p className="text-xs text-rose-700">{plan.problems.join("、")}</p>}
+      {!chosenKitchen && <p className="text-xs text-rose-700">使える厨房がない（空いていない・設備や広さが足りない）。⏭待つで次の時間帯を試すか、食数を減らそう</p>}
       <button
         className="btn-primary w-full py-3.5 text-lg"
-        disabled={plan.problems.length > 0}
+        disabled={plan.problems.length > 0 || !chosenKitchen}
         onClick={() => {
-          const r = startCook(w, plan, newCookingSeed());
+          const rented = rentKitchen(w, chosenKitchen!, needs);
+          if (typeof rented === "string") return setMsg(rented);
+          setStartDay(w.day);
+          setUsedKitchen(chosenKitchen);
+          const r = startCook(rented, plan, newCookingSeed());
           if (typeof r === "string") return setMsg(r);
           setMsg("");
           setWorld(r.world);

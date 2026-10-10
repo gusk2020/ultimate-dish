@@ -2,7 +2,11 @@ import { EaterQuestBoard } from "./EaterQuests";
 import { useEffect, useRef, useState } from "react";
 import { BattlePage } from "./BattlePage";
 import type { Eater, Quest, QuestResult, TasteKey } from "../types";
-import { QUESTS } from "../data/quests";
+import { questsAt } from "../data/quests";
+import { storyOfMaker } from "../data/stories";
+import { completeAction } from "../game/time/daily";
+import { offerEventKitchen } from "../game/kitchen/kitchens";
+import { locationOf } from "../game/travel/market";
 import { EATER_MAP } from "../data/eaters";
 import { AXIS_LABEL } from "../game/labels";
 import { SPICES, TOOLS } from "../data/magic";
@@ -16,9 +20,9 @@ const TASTE_LABEL: Record<TasteKey, string> = {
 };
 const TEXTURE_LABEL = { tender: "柔らかい", chewy: "歯ごたえ", crisp: "サクサク", soft: "ふんわり", firm: "しっかり" };
 
-function questStatus(q: Quest, idx: number, cleared: string[]): "cleared" | "open" | "locked" {
+function questStatus(q: Quest, idx: number, cleared: string[], list: Quest[]): "cleared" | "open" | "locked" {
   if (cleared.includes(q.id)) return "cleared";
-  if (idx === 0 || cleared.includes(QUESTS[idx - 1].id)) return "open";
+  if (idx === 0 || cleared.includes(list[idx - 1].id)) return "open";
   return "locked";
 }
 
@@ -59,6 +63,8 @@ function QuestDetail({ quest }: { quest: Quest }) {
     const result = judgeQuest(quest, dish, eater);
     const text = await textGenerator.questResult(quest, dish, result);
     dispatch({ type: "questResult", result });
+    // Phase 10: delivering a request is a main action — one part of the day passes.
+    dispatch({ type: "setWorld", world: completeAction(state.world, state.world.day) });
     setLast({ result, text });
   };
 
@@ -84,6 +90,16 @@ function QuestDetail({ quest }: { quest: Quest }) {
       </div>
 
       <EaterPanel eater={eater} />
+      {storyOfMaker(quest.id) && <div className="text-[11px] text-stone-500">🔁 物語「{storyOfMaker(quest.id)!.title}」— 食べる側は試食・品評する側で関わる</div>}
+      <button
+        className="btn-secondary w-full text-sm"
+        onClick={() => {
+          dispatch({ type: "setWorld", world: offerEventKitchen(state.world, `依頼「${quest.title}」`, quest.id) });
+          dispatch({ type: "navigate", screen: "kitchen" });
+        }}
+      >
+        🎪 依頼者の厨房で作る（使用料なし）
+      </button>
 
       <div>
         <div className="mb-1 text-sm font-semibold">料理を提出</div>
@@ -93,7 +109,7 @@ function QuestDetail({ quest }: { quest: Quest }) {
           </button>
         ) : (
           <div className="max-h-64 space-y-1.5 overflow-y-auto">
-            {state.dishes.map((d) => (
+            {state.dishes.filter((d) => !d.bought).map((d) => (
               <button
                 key={d.id}
                 onClick={() => setSelected(d.id)}
@@ -142,13 +158,16 @@ function QuestDetail({ quest }: { quest: Quest }) {
 
 function QuestList() {
   const { state } = useGame();
-  const firstOpen = QUESTS.find((q, i) => questStatus(q, i, state.clearedQuestIds) === "open");
-  const [openId, setOpenId] = useState<string | null>(firstOpen?.id ?? QUESTS[0].id);
+  // Phase 10: only the requests of the place you are in.
+  const list = questsAt(locationOf(state.world).id);
+  const firstOpen = list.find((q, i) => questStatus(q, i, state.clearedQuestIds, list) === "open");
+  const [openId, setOpenId] = useState<string | null>(firstOpen?.id ?? list[0]?.id ?? null);
 
+  if (list.length === 0) return <p className="card m-4 text-sm text-stone-500">現在、この土地で受けられる依頼はない</p>;
   return (
     <div className="space-y-3 p-4">
-      {QUESTS.map((q, idx) => {
-        const status = questStatus(q, idx, state.clearedQuestIds);
+      {list.map((q, idx) => {
+        const status = questStatus(q, idx, state.clearedQuestIds, list);
         const expanded = openId === q.id && status !== "locked";
         return (
           <div key={q.id} className="card">
@@ -172,32 +191,36 @@ function QuestList() {
           </div>
         );
       })}
-      {state.clearedQuestIds.length === QUESTS.length && (
+      {list.every((q) => state.clearedQuestIds.includes(q.id)) && (
         <p className="text-center text-sm text-emerald-700">全依頼達成！究極の料理への旅は続く…</p>
       )}
     </div>
   );
 }
 
-/** 勝負 tab: cooking battles (Phase 4) and the village quests (Phase 1). */
+/**
+ * 勝負・依頼 (Phase 10): the role is fixed, so each role sees only its own game —
+ * a cook makes and submits, an eater tastes, compares and judges. Only this place's offers.
+ */
 export function Quests() {
   const { state } = useGame();
-  // Phase 9: 食べる側 starts on the eater board; both roles can use every board.
   const eater = state.world.identity?.lean === "eater";
-  const [tab, setTab] = useState<"eat" | "battle" | "quest">(eater ? "eat" : "battle");
-  const tabs = (eater
-    ? [["eat", "🍴 食べる依頼"], ["battle", "⚔️ 料理勝負"], ["quest", "📜 依頼"]]
-    : [["battle", "⚔️ 料理勝負"], ["quest", "📜 依頼"], ["eat", "🍴 食べる依頼"]]) as [typeof tab, string][];
+  const [tab, setTab] = useState<"battle" | "quest">("battle");
+  const loc = locationOf(state.world);
+  const tabs: [typeof tab, string][] = eater
+    ? [["battle", "🍴 食べる勝負"], ["quest", "📜 食べる依頼"]]
+    : [["battle", "⚔️ 料理勝負"], ["quest", "📜 料理の依頼"]];
   return (
     <div>
-      <div className="mx-4 mt-4 grid grid-cols-3 gap-1 rounded-xl bg-stone-200 p-1">
+      <h2 className="mx-4 mt-3 text-xs text-stone-500">{loc.emoji}{loc.name}の{eater ? "食べる側" : "作る側"}の勝負・依頼</h2>
+      <div className="mx-4 mt-1 grid grid-cols-2 gap-1 rounded-xl bg-stone-200 p-1">
         {tabs.map(([t, l]) => (
           <button key={t} className={`min-h-10 rounded-lg text-sm ${tab === t ? "bg-white font-bold shadow" : "text-stone-600"}`} onClick={() => setTab(t)}>
             {l}
           </button>
         ))}
       </div>
-      {tab === "eat" ? <EaterQuestBoard /> : tab === "battle" ? <div className="p-4"><BattlePage /></div> : <QuestList />}
+      {eater ? <EaterQuestBoard board={tab === "battle" ? "battle" : "request"} /> : tab === "battle" ? <div className="p-4"><BattlePage /></div> : <QuestList />}
     </div>
   );
 }

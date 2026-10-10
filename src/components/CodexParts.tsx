@@ -52,7 +52,7 @@ function ReviewCard({ r }: { r: ThirdPartyReview }) {
   );
 }
 
-function CodexDetail({ e }: { e: CodexEntry }) {
+export function CodexDetail({ e }: { e: CodexEntry }) {
   const { state, dispatch } = useGame();
   const w = state.world;
   const [msg, setMsg] = useState("");

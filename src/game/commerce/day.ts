@@ -1,3 +1,4 @@
+import { partOf } from "../time/calendar";
 import { itemInfo } from "../../data/items";
 import { SLOTS, type Slot } from "../../data/commerce";
 import type { DishStock, StackState } from "../../types/world";
@@ -41,7 +42,7 @@ export interface DailyReport {
 
 export function endDay(w: World, seed: number): { world: World; report: DailyReport } {
   const dayNo = Math.floor(w.day) + 1;
-  const listed = w.dishStock.filter((s) => s.listed && s.portions > 0);
+  const listed = w.dishStock.filter((s) => s.listed && !s.bought && s.portions > 0);
   const market = marketFor(w.fame, w.trends, listed.length);
 
   // 1. 総菜販売
@@ -83,7 +84,8 @@ export function endDay(w: World, seed: number): { world: World; report: DailyRep
 
   // 4. 夜: time to tomorrow morning (inventory ageing, MP regen, upkeep), then sleep.
   const before = new Map(w.inventory.map((s) => [s.id, s.state]));
-  const nextMorning = Math.floor(w.day) + 1.25;
+  // Phase 10: the night belongs to the date it started on (00:00-06:00 is still that night).
+  const nextMorning = partOf(w.day).dayIndex + 1.25;
   const upkeep = Math.round(upkeepPerDay(w.inventory) * (nextMorning - w.day) * 100) / 100;
   let world = advanceTime({ ...w, dishStock, contracts: nextContracts }, nextMorning - w.day);
   const inventoryChanges = world.inventory

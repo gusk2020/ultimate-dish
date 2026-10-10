@@ -1,3 +1,5 @@
+import { completeAction, passParts } from "../game/time/daily";
+import { slotIndex } from "../game/time/calendar";
 import { useState } from "react";
 import { SEGMENTS, SHOPS, SLOT_ORDER, SLOTS } from "../data/commerce";
 import { SALES_TAG_LABEL, type SalesTag } from "../data/recipes";
@@ -175,7 +177,7 @@ export function SalesPage() {
       {w.dishStock.length === 0 ? (
         <button className="btn-secondary w-full" onClick={() => dispatch({ type: "navigate", screen: "kitchen" })}>売る料理がない → 厨房で作る</button>
       ) : (
-        w.dishStock.map((s) => <StockCard key={s.id} s={s} />)
+        w.dishStock.filter((s) => !s.bought).map((s) => <StockCard key={s.id} s={s} />)
       )}
 
       <h2 className="section-title mb-0">📜 レシピ契約（店に任せる）</h2>
@@ -222,12 +224,13 @@ export function SalesPage() {
       )}
 
       <div className="grid grid-cols-3 gap-2">
-        <button className="btn-secondary" onClick={() => dispatch({ type: "setWorld", world: rest(w) })}>😴 休息</button>
+        <button className="btn-secondary" onClick={() => dispatch({ type: "setWorld", world: completeAction(rest(w), w.day) })}>😴 休息</button>
         <button
           className="btn-primary col-span-2"
           onClick={() => {
             const r = endDay(w, newCookingSeed());
-            dispatch({ type: "setWorld", world: r.world });
+            // Phase 10: the parts of the day that passed bring hunger and routine meals with them.
+            dispatch({ type: "setWorld", world: passParts(r.world, slotIndex(r.world.day) - slotIndex(w.day)) });
             setReport(r.report);
             window.scrollTo({ top: 0 });
           }}

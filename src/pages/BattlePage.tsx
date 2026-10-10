@@ -8,6 +8,11 @@ import { findSchool } from "../game/school/school";
 import { formatDays } from "../game/process/simulate";
 import { applyBattleResult, battleUnlocked, judgeInfo, judgeKnowledge, runBattle, themeFit } from "../game/battle/battle";
 import { newCookingSeed } from "../game/rng";
+import { completeAction } from "../game/time/daily";
+import { offerEventKitchen } from "../game/kitchen/kitchens";
+import { makerBattles, OPPONENT_LIMIT, opponentOf, rivalUnlocked } from "../game/battle/rotation";
+import { storyOfMaker } from "../data/stories";
+import { locationOf } from "../game/travel/market";
 import { codexKeyOf } from "../game/codex/codex";
 import { useGame } from "../state/GameContext";
 import { DishImageView, RankBadge } from "../components/DishParts";
@@ -89,7 +94,8 @@ function BattleDetail({ def, onBack }: { def: BattleDef; onBack: () => void }) {
   const fight = () => {
     if (!dish) return;
     const r = runBattle(w, def, dish, newCookingSeed());
-    dispatch({ type: "setWorld", world: applyBattleResult(w, r, dish) });
+    // Phase 10: a battle is a main action — one part of the day passes.
+    dispatch({ type: "setWorld", world: completeAction(applyBattleResult(w, r, dish), w.day) });
     setResult(r);
     window.scrollTo({ top: 0 });
   };
@@ -130,7 +136,7 @@ function BattleDetail({ def, onBack }: { def: BattleDef; onBack: () => void }) {
           <button className="btn-secondary w-full" onClick={() => dispatch({ type: "navigate", screen: "kitchen" })}>料理がない → 厨房で作る</button>
         )}
         <div className="max-h-72 space-y-1.5 overflow-y-auto">
-          {state.dishes.map((d) => {
+          {state.dishes.filter((d) => !d.bought).map((d) => {
             const fit = themeFit(d, def.conditions);
             const req = def.conditions.requiredIngredient;
             return (
@@ -151,10 +157,43 @@ function BattleDetail({ def, onBack }: { def: BattleDef; onBack: () => void }) {
             );
           })}
         </div>
-        <button className="btn-secondary w-full text-sm" onClick={() => dispatch({ type: "navigate", screen: "kitchen" })}>厨房で新しく作る</button>
+        <button
+          className="btn-secondary w-full text-sm"
+          onClick={() => {
+            dispatch({ type: "setWorld", world: offerEventKitchen(w, def.name, def.id) });
+            dispatch({ type: "navigate", screen: "kitchen" });
+          }}
+        >
+          🎪 主催者の厨房で作る（使用料なし）
+        </button>
         <button className="btn-primary w-full py-3" disabled={!dish} onClick={fight}>⚔️ この料理で勝負！</button>
       </div>
     </div>
+  );
+}
+
+function BattleRow({ b, onOpen }: { b: BattleDef; onOpen: () => void }) {
+  const { state } = useGame();
+  const w = state.world;
+  const open = battleUnlocked(w, b);
+  const log = w.battleLog.filter((r) => r.battleId === b.id);
+  const wins = log.filter((r) => r.winner === "player").length;
+  const draws = log.filter((r) => r.winner === "draw").length;
+  const story = storyOfMaker(b.id);
+  const opp = opponentOf(w, b.rivalId);
+  return (
+    <button disabled={!open} className="card w-full text-left disabled:opacity-50" onClick={onOpen}>
+      <div className="flex justify-between">
+        <span className="font-bold">{open ? b.name : "？？？"}</span>
+        <span className="text-xs text-stone-500">{KIND[b.kind]}・審査{b.judgeIds.length}人</span>
+      </div>
+      <div className="text-xs text-stone-600">
+        {open ? `${RIVAL_MAP[b.rivalId].name}／${b.conditions.theme.label}` : "前の勝負を終えると解放"}
+        {log.length > 0 && `・戦績 ${wins}勝${log.length - wins - draws}敗${draws}分`}
+        {open && `・この相手と${opp.matches}/${OPPONENT_LIMIT}戦`}
+      </div>
+      {story && <div className="text-[10px] text-stone-400">🔁 物語「{story.title}」— 食べる側は審査する側で関わる</div>}
+    </button>
   );
 }
 
@@ -164,28 +203,18 @@ export function BattlePage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const def = BATTLES.find((b) => b.id === openId);
   if (def) return <BattleDetail def={def} onBack={() => setOpenId(null)} />;
+  const { main, rematch } = makerBattles(w);
+  const here = locationOf(w).id;
+  // Battles here still waiting on an earlier one (shown as ？？？).
+  const locked = BATTLES.filter((b) => (b.locationId ?? "village") === here && rivalUnlocked(w, b.rivalId) && !battleUnlocked(w, b));
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-stone-500">一皿勝負。審査員が食べて採点します。</p>
-      {BATTLES.map((b) => {
-        const open = battleUnlocked(w, b);
-        const log = w.battleLog.filter((r) => r.battleId === b.id);
-        const wins = log.filter((r) => r.winner === "player").length;
-        const draws = log.filter((r) => r.winner === "draw").length;
-        return (
-          <button key={b.id} disabled={!open} className="card w-full text-left disabled:opacity-50" onClick={() => setOpenId(b.id)}>
-            <div className="flex justify-between">
-              <span className="font-bold">{open ? b.name : "？？？"}</span>
-              <span className="text-xs text-stone-500">{KIND[b.kind]}・審査{b.judgeIds.length}人</span>
-            </div>
-            <div className="text-xs text-stone-600">
-              {open ? `${RIVAL_MAP[b.rivalId].name}／${b.conditions.theme.label}` : "前の勝負を終えると解放"}
-              {log.length > 0 && `・戦績 ${wins}勝${log.length - wins - draws}敗${draws}分`}
-            </div>
-          </button>
-        );
-      })}
+      <p className="text-xs text-stone-500">一皿勝負。審査員が食べて採点します。同じ相手とは{OPPONENT_LIMIT}戦まで。済んだら次の相手が現れ、前の相手は「再戦」へ。</p>
+      {main.length === 0 && locked.length === 0 && <p className="card text-sm text-stone-500">現在、この土地で受けられる勝負はない</p>}
+      {[...main, ...locked].map((b) => <BattleRow key={b.id} b={b} onOpen={() => setOpenId(b.id)} />)}
+      {rematch.length > 0 && <h3 className="pt-2 text-xs font-semibold text-stone-500">🔁 再戦</h3>}
+      {rematch.map((b) => <BattleRow key={b.id} b={b} onOpen={() => setOpenId(b.id)} />)}
     </div>
   );
 }

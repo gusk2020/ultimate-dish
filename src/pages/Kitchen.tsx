@@ -1,4 +1,6 @@
 import { recordCooked, withCodexImage } from "../game/codex/codex";
+import { afterCooking, rentKitchen, suggestKitchen } from "../game/kitchen/kitchens";
+import { completeAction } from "../game/time/daily";
 import { useCallback, useEffect, useState } from "react";
 import type { Dish, Ingredient, Step, TasteKey } from "../types";
 import { CATEGORY_LABEL, INGREDIENTS, MAX_INGREDIENTS } from "../data/ingredients";
@@ -63,11 +65,17 @@ function SimpleKitchen() {
     setResult(null);
   };
 
+  const simpleNeeds = { methodIds: steps.flatMap((s) => (s.kind === "method" ? [s.id] : [])), portions: 1, usesTool: steps.some((s) => s.kind === "tool") };
+  const simpleKitchen = suggestKitchen(state.world, simpleNeeds);
   const cook = async () => {
+    // Phase 10: the cheapest suitable kitchen here is rented for this part of the day.
+    if (!simpleKitchen) return;
+    const rented = rentKitchen(state.world, simpleKitchen.id, simpleNeeds);
+    if (typeof rented === "string") return;
     setBusy(true);
     const dish = await completeDish({ ingredientIds, steps }, parentDishId);
     dispatch({ type: "addDish", dish });
-    dispatch({ type: "setWorld", world: withCodexImage(recordCooked(state.world, dish).world, dish) });
+    dispatch({ type: "setWorld", world: completeAction(afterCooking(withCodexImage(recordCooked(rented, dish).world, dish), simpleKitchen.id), state.world.day) });
     setResult(dish);
     setBusy(false);
     window.scrollTo({ top: 0 });
@@ -220,8 +228,8 @@ function SimpleKitchen() {
       </section>
 
       <div className="fixed inset-x-0 bottom-16 z-10 mx-auto max-w-md px-4">
-        <button className="btn-primary w-full py-3.5 text-lg shadow-lg" disabled={!ingredientIds.length || busy} onClick={cook}>
-          {busy ? "調理中…" : "🍽️ 完成！"}
+        <button className="btn-primary w-full py-3.5 text-lg shadow-lg" disabled={!ingredientIds.length || busy || !simpleKitchen} onClick={cook}>
+          {busy ? "調理中…" : simpleKitchen ? `🍽️ 完成！（${simpleKitchen.name} ${simpleKitchen.cost}G）` : "使える厨房がない"}
         </button>
       </div>
     </div>
@@ -239,6 +247,9 @@ export function Kitchen() {
   useEffect(() => {
     if (seed) setMode(seed.steps ? "line" : "simple");
   }, [seed]);
+  useEffect(() => {
+    if (state.cookRecipeId) setMode("recipe");
+  }, [state.cookRecipeId]);
   const consume = useCallback(() => dispatch({ type: "consumeSeed" }), [dispatch]);
 
   return (

@@ -121,7 +121,7 @@ describe("quests", () => {
 
   it("each quest has a passing recipe and a plain dish fails it", () => {
     const plain = asDish({ ingredientIds: ["wheat", "milk"], steps: [m("boil")] });
-    for (const q of QUESTS) {
+    for (const q of QUESTS.filter((x) => !x.locationId)) { // the village requests (Phase 10 adds regional ones)
       const eater = EATER_MAP[q.eaterId];
       expect(judgeQuest(q, asDish(good[q.id]), eater).success, q.id).toBe(true);
       expect(judgeQuest(q, plain, eater).success, q.id).toBe(false);

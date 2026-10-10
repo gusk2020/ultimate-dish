@@ -1,4 +1,5 @@
 import type { Dish, Rank } from "../../types";
+import { DEFAULT_EATER_SCHOOL } from "../../data/eaterSchools";
 import type { CodexEntry, PlayerProgression, ThirdPartyReview } from "../../types/codex";
 import type { RecipeProgress } from "../../types/learning";
 import { RANK_ORDER, rankOf } from "../evaluation/rating";
@@ -13,7 +14,7 @@ import type { World } from "../world";
 export type CodexDish = Pick<Dish, "id" | "name" | "recipe" | "profile" | "total"> & { recipeId?: string | null; rank?: Rank; image?: Dish["image"] };
 
 export function newProgression(): PlayerProgression {
-  return { eaterXp: 0, eaterLevel: 1, reputation: 0, experience: { ingredients: {}, methods: {}, regions: {} }, eatenCounts: {}, spiceTolerance: 0, questLog: [] };
+  return { eaterXp: 0, eaterLevel: 1, reputation: 0, experience: { ingredients: {}, methods: {}, regions: {} }, eatenCounts: {}, spiceTolerance: 0, questLog: [], eaterSchoolId: DEFAULT_EATER_SCHOOL, eaterSkills: {} };
 }
 
 export const progressionOf = (w: Pick<World, "progression">): PlayerProgression => w.progression ?? newProgression();

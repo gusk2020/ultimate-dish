@@ -19,6 +19,17 @@ export interface PlayerProgression {
   spiceTolerance: number;
   /** Eater quests taken (食べ比べ・大食い・激辛・審査員). */
   questLog: { questId: string; day: number; success: boolean }[];
+  /** Phase 10: the eater's school (流派) and skill xp. */
+  eaterSchoolId: string;
+  eaterSkills: Partial<Record<import("../data/eaterSchools").EaterSkillId, number>>;
+}
+
+/** Phase 10: how often the player has faced each opponent (maker battles and eater challenges). */
+export interface OpponentProgress {
+  opponentId: string;
+  matches: number;
+  wins: number;
+  losses: number;
 }
 
 export type ReviewSource = "questJudge" | "hiredTaster" | "guildReview" | "publicReview";

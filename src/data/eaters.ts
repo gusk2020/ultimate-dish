@@ -19,6 +19,22 @@ export const EATERS: Eater[] = [
     texturePrefs: ["crisp", "tender"],
     adventurous: 0.6, hunger: 0.5, fatigue: 0.4, nutritionNeed: 0.4,
   },
+  // Phase 10: the people who ask in the other places.
+  {
+    id: "hans", name: "渡し守ハンス", emoji: "🧑‍✈️", role: "渡し場の渡し守",
+    tastePrefs: { salty: 0.5, umami: 0.6, aroma: 0.3, bitter: -0.3 }, texturePrefs: ["crisp", "firm"],
+    adventurous: 0.5, hunger: 0.8, fatigue: 0.6, nutritionNeed: 0.4,
+  },
+  {
+    id: "mare", name: "漁師頭マレ", emoji: "🎣", role: "港の漁師頭",
+    tastePrefs: { salty: 0.6, umami: 0.8, sour: 0.3, sweet: -0.2 }, texturePrefs: ["soft", "chewy"],
+    adventurous: 0.6, hunger: 0.7, fatigue: 0.7, nutritionNeed: 0.4,
+  },
+  {
+    id: "ilse", name: "山羊飼いイルゼ", emoji: "🐐", role: "高地の山羊飼い",
+    tastePrefs: { umami: 0.6, sweet: 0.3, salty: 0.2, sour: -0.3 }, texturePrefs: ["soft", "tender"],
+    adventurous: 0.4, hunger: 0.7, fatigue: 0.6, nutritionNeed: 0.8,
+  },
 ];
 
 export const EATER_MAP: Record<string, Eater> = Object.fromEntries(EATERS.map((e) => [e.id, e]));

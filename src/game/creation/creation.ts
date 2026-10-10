@@ -9,6 +9,7 @@ import { setFoodStory } from "../eating/eat";
 import type { FoodStoryAnswers } from "../eating/profile";
 import { chooseCompanion, declineCompanion, generateCandidates } from "../social/companion";
 import type { World } from "../world";
+import { NEW_GAME_DAY } from "../time/calendar";
 
 // キャラクター作成: a draft the creation screens fill in, the order of its steps, and the one
 // function that turns it into the starting world. Nothing reaches the normal game until then.
@@ -188,7 +189,8 @@ export function finalizeCreation(base: World, d: CreationDraft): World | string 
     companionPresentation: d.start === "companion" ? d.companionPresentation : null,
     name: resolvedName(d),
   };
-  return { ...w, identity };
+  // Phase 10: every new character begins on 9876年5月4日, 15:00 (午後).
+  return { ...w, identity, day: NEW_GAME_DAY };
 }
 
 /** New games show the creation sequence; a world without identity data counts as an existing player. */
